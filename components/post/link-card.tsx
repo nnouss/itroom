@@ -1,10 +1,14 @@
 import Image from "next/image";
-export type LinkPreview = {
-  url: string;
-  title: string;
-  description: string;
-  image?: string;
-};
+import type { LinkPreview } from "@/lib/types";
+
+function hostname(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 export function LinkCard({ link }: { link: LinkPreview }) {
   return (
     <a
@@ -26,12 +30,12 @@ export function LinkCard({ link }: { link: LinkPreview }) {
       )}
       <div className="min-w-0 space-y-2 p-4">
         <p className="type-title line-clamp-2">{link.title}</p>
-        <p className="type-body-sm line-clamp-2 text-text-muted">
-          {link.description}
-        </p>
-        <p className="type-caption text-text-faint">
-          {new URL(link.url).hostname}
-        </p>
+        {link.description && (
+          <p className="type-body-sm line-clamp-2 text-text-muted">
+            {link.description}
+          </p>
+        )}
+        <p className="type-caption text-text-faint">{hostname(link.url)}</p>
       </div>
     </a>
   );

@@ -15,6 +15,7 @@ create table public.posts (
   author_id uuid not null references public.profiles(id) on delete cascade,
   content_html text not null,
   tags text[] not null default '{}',
+  images text[] not null default '{}',
   link_url text,
   link_title text,
   link_description text,

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -18,36 +19,55 @@ import {
 } from "@/components/ui/dialog";
 import { LinkCard } from "./link-card";
 import { TagChip } from "./tag-chip";
-import type { MockPost } from "@/lib/mock-posts";
+import { DeletePostDialog } from "./delete-post-dialog";
+import type { Post } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
 export function PostRow({
   post,
   isOwner,
   relativeTime,
+  activeTag,
+  afterDelete = "refresh",
+  onDeleted,
+  standalone = false,
 }: {
-  post: MockPost;
+  post: Post;
   isOwner: boolean;
   relativeTime: string;
+  activeTag?: string | null;
+  afterDelete?: "refresh" | "home";
+  onDeleted?: (id: string) => void;
+  /** 상세 화면: 구분선 없이 단독 표시 */
+  standalone?: boolean;
 }) {
-  const multiple = (post.images?.length ?? 0) > 1;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const multiple = post.images.length > 1;
+  const edited = post.updatedAt !== post.createdAt;
   return (
-    <article className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)] gap-3 border-b border-hairline-soft py-4 md:py-6">
+    <article
+      className={cn(
+        "grid min-w-0 grid-cols-[36px_minmax(0,1fr)] gap-3 py-4 md:py-6",
+        !standalone && "border-b border-hairline-soft",
+      )}
+    >
       <div
         aria-hidden="true"
         className="type-label flex size-9 items-center justify-center rounded-full bg-canvas-soft"
       >
-        {post.author.slice(0, 1)}
+        {Array.from(post.authorName)[0]}
       </div>
       <div className="min-w-0">
         <div className="mb-2 flex min-h-9 items-center gap-2">
-          <h2 className="type-title font-[650]">{post.author}</h2>
+          <h2 className="type-title font-[650]">{post.authorName}</h2>
           <span className="type-caption text-text-muted">·</span>
-          <time
-            dateTime={post.createdAt}
-            className="type-caption text-text-muted"
+          <Link
+            href={`/posts/${post.id}`}
+            className="type-caption rounded-full text-text-muted hover:underline"
           >
-            {relativeTime}
-          </time>
+            <time dateTime={post.createdAt}>{relativeTime}</time>
+            {edited && <span> (수정됨)</span>}
+          </Link>
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -67,9 +87,12 @@ export function PostRow({
                     수정
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled className="text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => setDeleteOpen(true)}
+                >
                   <Trash2 />
-                  삭제 (준비 중)
+                  삭제
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -82,25 +105,22 @@ export function PostRow({
               dangerouslySetInnerHTML={{ __html: post.contentHtml }}
             />
           )}
-          {post.images && (
+          {post.images.length > 0 && (
             <div
               className={cn(
                 "min-w-0",
-                multiple &&
-                  "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2",
+                multiple && "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2",
               )}
               aria-label="게시물 이미지"
             >
               {post.images.map((image) => (
-                <Dialog key={image.src}>
+                <Dialog key={image.path}>
                   <DialogTrigger asChild>
                     <button
                       aria-label={`${image.alt} 원본 보기`}
                       className={cn(
-                        "block overflow-hidden rounded-2xl",
-                        multiple
-                          ? "h-60 w-[85%] shrink-0 snap-start"
-                          : "w-full",
+                        "block overflow-hidden rounded-2xl bg-canvas-soft",
+                        multiple ? "h-60 w-[85%] shrink-0 snap-start" : "w-full",
                       )}
                     >
                       <Image
@@ -138,12 +158,21 @@ export function PostRow({
           {post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
-                <TagChip key={tag} tag={tag} />
+                <TagChip key={tag} tag={tag} active={tag === activeTag} />
               ))}
             </div>
           )}
         </div>
       </div>
+      {isOwner && (
+        <DeletePostDialog
+          postId={post.id}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          afterDelete={afterDelete}
+          onDeleted={onDeleted}
+        />
+      )}
     </article>
   );
 }
