@@ -2,8 +2,10 @@ import { ComposeRow } from "@/components/post/compose-row";
 import { PostRow } from "@/components/post/post-row";
 import { getMockPosts } from "@/lib/mock-posts";
 import { formatRelative } from "@/lib/format";
-export default function FeedPage() {
-  const isOwner = true;
+import { requireUser } from "@/lib/auth";
+export default async function FeedPage() {
+  const { profile } = await requireUser();
+  const isOwner = profile.role === "owner";
   const now = new Date();
   return (
     <>

@@ -10,7 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-export function NavPill() {
+import { signOut } from "@/app/(auth)/actions";
+export function NavPill({
+  displayName,
+  isOwner,
+}: {
+  displayName: string;
+  isOwner: boolean;
+}) {
   return (
     <header className="sticky top-3 z-30 mx-3 mt-3 flex h-14 items-center justify-between rounded-full bg-canvas-soft py-2 pr-2 pl-6 md:mx-auto md:max-w-[640px]">
       <Link
@@ -28,18 +35,28 @@ export function NavPill() {
               className="type-label flex size-8 items-center justify-center rounded-full bg-ink text-on-ink"
               aria-label="프로필 메뉴"
             >
-              잇
+              {Array.from(displayName)[0] || "회"}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>잇룸 에디터</DropdownMenuLabel>
+            <DropdownMenuLabel className="max-w-64 break-words">
+              {displayName}
+              <p className="type-caption mt-1 text-text-muted">
+                {isOwner ? "소유자" : "회원"}
+              </p>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/login">
-                <LogOut />
-                로그아웃
-              </Link>
-            </DropdownMenuItem>
+            <form action={signOut}>
+              <DropdownMenuItem
+                asChild
+                onSelect={(event) => event.preventDefault()}
+              >
+                <button type="submit" className="w-full">
+                  <LogOut />
+                  로그아웃
+                </button>
+              </DropdownMenuItem>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </nav>

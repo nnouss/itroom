@@ -45,3 +45,5 @@ next-env.d.ts
 
 # local package cache
 .pnpm-store/
+
+!.env.example
