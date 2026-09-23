@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body
-        className={`${mono.variable} min-h-dvh bg-canvas font-sans text-ink`}
+        className={`${mono.variable} min-h-dvh bg-canvas font-sans text-ink antialiased`}
       >
         <ThemeProvider>
           <AuthHashHandler />

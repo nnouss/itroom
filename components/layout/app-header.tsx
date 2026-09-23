@@ -82,7 +82,7 @@ export function AppHeader({ displayName, isOwner }: { displayName: string; isOwn
             onClick={(event) => {
               if (!home && !confirmLeave()) event.preventDefault();
             }}
-            className={cn("type-title text-[20px] font-[650]", sub && "hidden sm:inline")}
+            className={cn("type-title text-[20px] font-semibold", sub && "hidden sm:inline")}
           >
             잇룸
           </Link>

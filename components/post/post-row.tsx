@@ -50,7 +50,7 @@ export function PostRow({
         <div className="mb-3 flex items-center gap-3">
           <AvatarMark name={post.authorName} size={40} />
           <div className="min-w-0 flex-1">
-            <h2 className="type-title min-w-0 truncate text-[15px] font-[650]">{post.authorName}</h2>
+            <h2 className="type-title min-w-0 truncate text-[15px]">{post.authorName}</h2>
             <Link
               href={`/posts/${post.id}`}
               className="type-caption rounded-full text-text-muted hover:underline"
