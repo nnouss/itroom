@@ -36,7 +36,7 @@ export function PostRow({
   isOwner: boolean;
   relativeTime: string;
   activeTag?: string | null;
-  afterDelete?: "refresh" | "home";
+  afterDelete?: "refresh" | "home" | "none";
   onDeleted?: (id: string) => void;
   /** 상세 화면: 구분선 없이 단독 표시 */
   standalone?: boolean;
@@ -59,11 +59,11 @@ export function PostRow({
       </div>
       <div className="min-w-0">
         <div className="mb-2 flex min-h-9 items-center gap-2">
-          <h2 className="type-title font-[650]">{post.authorName}</h2>
-          <span className="type-caption text-text-muted">·</span>
+          <h2 className="type-title min-w-0 truncate font-[650]">{post.authorName}</h2>
+          <span className="type-caption shrink-0 text-text-muted">·</span>
           <Link
             href={`/posts/${post.id}`}
-            className="type-caption rounded-full text-text-muted hover:underline"
+            className="type-caption shrink-0 rounded-full text-text-muted hover:underline"
           >
             <time dateTime={post.createdAt}>{relativeTime}</time>
             {edited && <span> (수정됨)</span>}

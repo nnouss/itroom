@@ -11,11 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Toolbar } from "./toolbar";
 import { TagInput } from "./tag-input";
 import { LinkDialog } from "./link-dialog";
-import { savePost } from "@/app/(app)/posts/actions";
+import { discardUploads, savePost, type SavePostResult } from "@/app/(app)/posts/actions";
 import { uploadImage, UploadError } from "@/lib/upload";
-import { mediaUrl } from "@/lib/media";
+import { mediaUrl, pathFromMediaUrl } from "@/lib/media";
+import { cn } from "@/lib/utils";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/** 현재 에디터 HTML에 남아 있는 /media 경로 */
+function imagePathsIn(html: string): Set<string> {
+  const paths = new Set<string>();
+  for (const match of html.matchAll(/<img[^>]+src="([^"]+)"/g)) {
+    const path = pathFromMediaUrl(match[1]);
+    if (path) paths.add(path);
+  }
+  return paths;
+}
 
 export function PostEditor({
   mode,
@@ -40,6 +51,9 @@ export function PostEditor({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const submitted = useRef(false);
+  const pendingRef = useRef(false);
+  /** 이 세션에서 새로 올린 이미지. 글에 채택되지 않은 것은 정리한다. */
+  const uploaded = useRef<Set<string>>(new Set());
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -85,13 +99,14 @@ export function PostEditor({
 
   const addImages = useCallback(
     async (files: File[]) => {
-      if (!editor) return;
+      if (!editor || pendingRef.current) return;
       for (const file of files) {
         setUploading((n) => n + 1);
+        setDirty(true);
         try {
           const path = await uploadImage(file, userId);
+          uploaded.current.add(path);
           editor.chain().focus().setImage({ src: mediaUrl(path), alt: file.name }).run();
-          setDirty(true);
         } catch (err) {
           toast(err instanceof UploadError ? err.message : "이미지를 올리지 못했습니다.");
         } finally {
@@ -110,16 +125,32 @@ export function PostEditor({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  const cleanupUnused = (keep: Set<string>) => {
+    const unused = [...uploaded.current].filter((path) => !keep.has(path));
+    if (unused.length > 0) void discardUploads(unused).catch(() => {});
+  };
+
   const submit = () => {
-    if (!editor || uploading > 0) return;
+    if (!editor || uploading > 0 || pendingRef.current) return;
     setError(null);
+    pendingRef.current = true;
+    editor.setEditable(false);
+    const contentHtml = editor.getHTML();
     startTransition(async () => {
-      const result = await savePost({ id: postId, contentHtml: editor.getHTML(), tags });
+      let result: SavePostResult;
+      try {
+        result = await savePost({ id: postId, contentHtml, tags });
+      } catch {
+        result = { error: "연결에 실패했습니다. 잠시 후 다시 시도해주세요." };
+      }
       if (result.error || !result.id) {
         setError(result.error ?? "저장하지 못했습니다.");
+        pendingRef.current = false;
+        editor.setEditable(true);
         return;
       }
       submitted.current = true;
+      cleanupUnused(imagePathsIn(contentHtml));
       toast(mode === "create" ? "소식을 올렸습니다." : "소식을 수정했습니다.");
       router.push(mode === "create" ? "/" : `/posts/${result.id}`);
     });
@@ -127,6 +158,7 @@ export function PostEditor({
   const cancel = () => {
     if (dirty && !window.confirm("작성 중인 내용이 사라집니다. 나갈까요?")) return;
     submitted.current = true;
+    cleanupUnused(new Set());
     router.push(mode === "create" ? "/" : `/posts/${postId}`);
   };
   const currentHref = editor?.getAttributes("link").href ?? "";
@@ -158,7 +190,12 @@ export function PostEditor({
         )}
         <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t border-hairline-soft bg-canvas px-4 py-3 md:static md:mx-0 md:border-0 md:px-0 md:py-0">
           <Button type="button" variant="outline" disabled={pending} onClick={cancel}>취소</Button>
-          <Button type="button" className="relative" disabled={busy || uploading > 0} onClick={submit}>
+          <Button
+            type="button"
+            className={cn("relative", pending && "pl-9")}
+            disabled={busy || uploading > 0}
+            onClick={submit}
+          >
             {pending && <Loader2 aria-hidden="true" className="absolute left-3 animate-spin" />}
             {mode === "create" ? "게시" : "저장"}
           </Button>

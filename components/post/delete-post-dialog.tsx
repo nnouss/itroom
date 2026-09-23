@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { deletePost } from "@/app/(app)/posts/actions";
+import { cn } from "@/lib/utils";
 
 export function DeletePostDialog({
   postId,
@@ -23,7 +24,7 @@ export function DeletePostDialog({
   postId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  afterDelete: "refresh" | "home";
+  afterDelete: "refresh" | "home" | "none";
   onDeleted?: (id: string) => void;
 }) {
   const router = useRouter();
@@ -33,7 +34,12 @@ export function DeletePostDialog({
   const confirm = () =>
     startTransition(async () => {
       setError(null);
-      const result = await deletePost(postId);
+      let result: { error?: string };
+      try {
+        result = await deletePost(postId);
+      } catch {
+        result = { error: "연결에 실패했습니다. 잠시 후 다시 시도해주세요." };
+      }
       if (result.error) {
         setError(result.error);
         return;
@@ -42,7 +48,7 @@ export function DeletePostDialog({
       onDeleted?.(postId);
       toast("소식을 삭제했습니다.");
       if (afterDelete === "home") router.push("/");
-      else router.refresh();
+      else if (afterDelete === "refresh") router.refresh();
     });
 
   return (
@@ -71,7 +77,7 @@ export function DeletePostDialog({
             variant="destructive"
             disabled={pending}
             onClick={confirm}
-            className="relative"
+            className={cn("relative", pending && "pl-9")}
           >
             {pending && (
               <Loader2 aria-hidden="true" className="absolute left-3 animate-spin" />

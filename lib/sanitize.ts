@@ -5,16 +5,35 @@ import { pathFromMediaUrl, mediaUrl } from "@/lib/media";
 
 const ALLOWED_TAGS = ["p", "br", "strong", "em", "s", "code", "pre", "a", "ul", "ol", "li"];
 
-/** 에디터 HTML에서 `<img>`를 떼어내 Storage 경로 목록으로 돌려준다. */
-export function splitImages(html: string): { html: string; images: string[] } {
+/**
+ * 에디터 HTML에서 `<img>`를 떼어내 Storage 경로 목록으로 돌려준다.
+ * `/media/` 경로가 아닌 이미지는 `rejected`로 센다 (조용히 버리지 않는다).
+ */
+export function splitImages(html: string): { html: string; images: string[]; rejected: number } {
   const $ = cheerio.load(html, null, false);
   const images: string[] = [];
+  let rejected = 0;
   $("img").each((_, el) => {
     const path = pathFromMediaUrl($(el).attr("src") ?? "");
-    if (path && !images.includes(path)) images.push(path);
+    if (path) {
+      if (!images.includes(path)) images.push(path);
+    } else {
+      rejected += 1;
+    }
     $(el).remove();
   });
-  return { html: $.html(), images };
+  return { html: $.html(), images, rejected };
+}
+
+/** 렌더링 가능한 http(s) URL만 통과시킨다. */
+export function safeHttpUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 수정 화면용: 본문 끝에 이미지 노드를 다시 붙인다. */

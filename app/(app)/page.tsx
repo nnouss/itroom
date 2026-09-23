@@ -20,10 +20,10 @@ export default async function FeedPage({
       <h1 className="sr-only">잇룸 소식 피드</h1>
       {tag ? (
         <div className="flex items-center gap-3 border-b border-hairline-soft py-4">
-          <span className="type-label inline-flex h-7 items-center rounded-full bg-ink px-3 text-on-ink">
-            {tag}
+          <span className="type-label inline-flex h-7 min-w-0 max-w-[60%] items-center rounded-full bg-ink px-3 text-on-ink">
+            <span className="truncate">{tag}</span>
           </span>
-          <span className="type-body-sm text-text-muted">태그로 보는 중</span>
+          <span className="type-body-sm shrink-0 text-text-muted">태그로 보는 중</span>
           <Link
             href="/"
             aria-label="태그 필터 해제"
@@ -55,6 +55,7 @@ export default async function FeedPage({
         initialCursor={page.nextCursor}
         isOwner={isOwner}
         tag={tag}
+        serverNow={new Date().toISOString()}
       />
     </>
   );

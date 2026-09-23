@@ -19,6 +19,7 @@ test("splitImages pulls /media images out of the html and ignores external image
   const html = `<p>hi</p><img src="${mediaUrl(path)}" alt="x"><p>bye</p><img src="https://x.test/a.png">`;
   const result = splitImages(html);
   assert.deepEqual(result.images, [path]);
+  assert.equal(result.rejected, 1);
   assert.equal(result.html, "<p>hi</p><p>bye</p>");
   assert.equal(joinImages("<p>a</p>", [path]), `<p>a</p><img src="${mediaUrl(path)}" alt="첨부 이미지">`);
 });

@@ -9,7 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await params;
-  const objectPath = path.map(decodeURIComponent).join("/");
+  // Next가 이미 디코딩한 세그먼트를 그대로 잇는다 (이중 디코딩 금지).
+  const objectPath = path.join("/");
   if (!OBJECT_PATH_RE.test(objectPath) || !isEnvConfigured())
     return new NextResponse(null, { status: 404 });
   const supabase = await createClient();
@@ -23,6 +24,7 @@ export async function GET(
   if (error || !data) return new NextResponse(null, { status: 404 });
   return NextResponse.redirect(data.signedUrl, {
     status: 302,
-    headers: { "Cache-Control": "private, max-age=3000" },
+    // 세션 검사를 건너뛰는 캐시 재사용을 막는다. signed URL 자체는 1시간 유효.
+    headers: { "Cache-Control": "private, no-store" },
   });
 }

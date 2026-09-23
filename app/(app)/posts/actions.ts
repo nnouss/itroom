@@ -1,70 +1,97 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { fetchFeedPage, UUID_RE } from "@/lib/posts";
+import { fetchFeedPage, TIMESTAMP_RE, UUID_RE } from "@/lib/posts";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { firstExternalUrl, sanitizePostHtml, splitImages, textLength } from "@/lib/sanitize";
+import { fetchLinkPreview } from "@/lib/og";
+import { normalizeTags, MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/tags";
+import { OBJECT_PATH_RE } from "@/lib/media";
 import type { FeedCursor, FeedPage } from "@/lib/types";
 
-export async function loadMorePosts(
-  cursor: FeedCursor,
-  tag: string | null,
-): Promise<FeedPage> {
+const MAX_HTML_LENGTH = 100_000;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+export async function loadMorePosts(cursor: unknown, tag: unknown): Promise<FeedPage> {
   await requireUser();
-  if (!UUID_RE.test(cursor.id) || Number.isNaN(Date.parse(cursor.createdAt)))
+  if (
+    !isRecord(cursor) ||
+    typeof cursor.id !== "string" ||
+    !UUID_RE.test(cursor.id) ||
+    typeof cursor.createdAt !== "string" ||
+    !TIMESTAMP_RE.test(cursor.createdAt)
+  )
     return { posts: [], nextCursor: null };
-  return fetchFeedPage({ cursor, tag });
+  const safeTag = typeof tag === "string" ? tag.trim().slice(0, 40) || null : null;
+  return fetchFeedPage({ cursor: cursor as FeedCursor, tag: safeTag });
 }
 
-export async function deletePost(id: string): Promise<{ error?: string }> {
+export async function deletePost(id: unknown): Promise<{ error?: string }> {
   const { profile } = await requireUser();
   if (profile.role !== "owner") return { error: "삭제 권한이 없습니다." };
-  if (!UUID_RE.test(id)) return { error: "잘못된 글입니다." };
+  if (typeof id !== "string" || !UUID_RE.test(id)) return { error: "잘못된 글입니다." };
   const supabase = await createClient();
-  const { data: post, error: readError } = await supabase
+  const { data: deleted, error } = await supabase
     .from("posts")
-    .select("id, images")
+    .delete()
     .eq("id", id)
-    .maybeSingle();
-  if (readError) return { error: "글을 확인하지 못했습니다." };
-  if (!post) return { error: "이미 삭제된 글입니다." };
-  const { error } = await supabase.from("posts").delete().eq("id", id);
+    .select("id, images");
   if (error) return { error: "삭제하지 못했습니다. 잠시 후 다시 시도해주세요." };
-  const images = (post.images as string[] | null) ?? [];
-  if (images.length > 0) {
-    // 이미지 정리 실패는 글 삭제를 되돌릴 이유가 아니므로 무시한다.
-    await supabase.storage.from("post-images").remove(images);
-  }
+  if (!deleted || deleted.length === 0) return { error: "이미 삭제된 글입니다." };
+  const images = ((deleted[0].images as string[] | null) ?? []).filter((path) => OBJECT_PATH_RE.test(path));
+  if (images.length > 0) await removeUnreferenced(supabase, images);
   revalidatePath("/", "layout");
   return {};
 }
 
-import { firstExternalUrl, sanitizePostHtml, splitImages, textLength } from "@/lib/sanitize";
-import { fetchLinkPreview } from "@/lib/og";
-import { normalizeTags } from "@/lib/tags";
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** 다른 글이 참조하지 않는 이미지만 Storage에서 지운다. 정리 실패는 무시한다. */
+async function removeUnreferenced(supabase: Supabase, paths: string[]) {
+  const { data } = await supabase.from("posts").select("images").overlaps("images", paths);
+  const stillUsed = new Set((data ?? []).flatMap((row) => (row.images as string[] | null) ?? []));
+  const orphans = paths.filter((path) => !stillUsed.has(path));
+  if (orphans.length > 0) await supabase.storage.from("post-images").remove(orphans);
+}
 
 export type SavePostInput = { id?: string; contentHtml: string; tags: string[] };
 export type SavePostResult = { error?: string; id?: string };
 
-const MAX_HTML_LENGTH = 100_000;
-
-export async function savePost(input: SavePostInput): Promise<SavePostResult> {
+export async function savePost(input: unknown): Promise<SavePostResult> {
   const { user, profile } = await requireUser();
   if (profile.role !== "owner") return { error: "글을 쓸 권한이 없습니다." };
-  if (input.id && !UUID_RE.test(input.id)) return { error: "잘못된 글입니다." };
+  if (!isRecord(input)) return { error: "잘못된 요청입니다." };
+  const id = input.id;
+  if (id !== undefined && (typeof id !== "string" || !UUID_RE.test(id))) return { error: "잘못된 글입니다." };
   if (typeof input.contentHtml !== "string" || input.contentHtml.length > MAX_HTML_LENGTH)
     return { error: "본문이 너무 깁니다." };
+  const rawTags = Array.isArray(input.tags) ? input.tags : [];
+  if (rawTags.length > MAX_TAGS * 2 || rawTags.some((t) => typeof t !== "string" || t.length > MAX_TAG_LENGTH * 4))
+    return { error: "태그 형식이 올바르지 않습니다." };
 
   const split = splitImages(input.contentHtml);
+  if (split.rejected > 0)
+    return { error: "외부 이미지는 붙여 넣을 수 없습니다. 파일로 올려주세요." };
   const html = sanitizePostHtml(split.html);
   const images = split.images;
   if (images.some((path) => !path.startsWith(`${user.id}/`)))
     return { error: "허용되지 않은 이미지가 있습니다." };
-  const tags = normalizeTags(Array.isArray(input.tags) ? input.tags : []);
+  const tags = normalizeTags(rawTags as string[]);
   const linkUrl = firstExternalUrl(html);
   if (textLength(html) === 0 && images.length === 0 && !linkUrl)
     return { error: "내용을 입력해주세요." };
 
   const supabase = await createClient();
+
+  // 이미지는 글 하나에만 속한다. 다른 글이 쓰는 경로는 거부한다.
+  if (images.length > 0) {
+    let usedElsewhere = supabase.from("posts").select("id").overlaps("images", images).limit(1);
+    if (id) usedElsewhere = usedElsewhere.neq("id", id);
+    const { data: conflict } = await usedElsewhere;
+    if (conflict && conflict.length > 0) return { error: "다른 글에 이미 쓰인 이미지가 있습니다." };
+  }
+
   type PreviousRow = {
     images: string[] | null;
     link_url: string | null;
@@ -73,11 +100,11 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     link_image: string | null;
   };
   let previous: PreviousRow | null = null;
-  if (input.id) {
+  if (id) {
     const { data, error } = await supabase
       .from("posts")
       .select("images, link_url, link_title, link_description, link_image")
-      .eq("id", input.id)
+      .eq("id", id)
       .maybeSingle();
     if (error || !data) return { error: "수정할 글을 찾지 못했습니다." };
     previous = data as unknown as PreviousRow;
@@ -97,12 +124,13 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
   }
 
   const row = { content_html: html, tags, images, ...link };
-  let id = input.id;
-  if (id) {
-    const { error } = await supabase.from("posts").update(row).eq("id", id);
+  let savedId = id;
+  if (savedId) {
+    const { data: updated, error } = await supabase.from("posts").update(row).eq("id", savedId).select("id");
     if (error) return { error: "저장하지 못했습니다. 잠시 후 다시 시도해주세요." };
-    const removed = (previous?.images ?? []).filter((path) => !images.includes(path));
-    if (removed.length > 0) await supabase.storage.from("post-images").remove(removed);
+    if (!updated || updated.length === 0) return { error: "글이 삭제되었거나 수정할 수 없습니다." };
+    const removed = (previous?.images ?? []).filter((path) => !images.includes(path) && OBJECT_PATH_RE.test(path));
+    if (removed.length > 0) await removeUnreferenced(supabase, removed);
   } else {
     const { data, error } = await supabase
       .from("posts")
@@ -110,8 +138,21 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       .select("id")
       .single();
     if (error || !data) return { error: "저장하지 못했습니다. 잠시 후 다시 시도해주세요." };
-    id = data.id as string;
+    savedId = data.id as string;
   }
   revalidatePath("/", "layout");
-  return { id };
+  return { id: savedId };
+}
+
+/** 에디터에서 올렸지만 글에 쓰지 않은 이미지를 지운다 (취소, 노드 삭제 후 저장). */
+export async function discardUploads(paths: unknown): Promise<void> {
+  const { user, profile } = await requireUser();
+  if (profile.role !== "owner" || !Array.isArray(paths)) return;
+  const own = paths.filter(
+    (path): path is string =>
+      typeof path === "string" && OBJECT_PATH_RE.test(path) && path.startsWith(`${user.id}/`),
+  );
+  if (own.length === 0) return;
+  const supabase = await createClient();
+  await removeUnreferenced(supabase, own.slice(0, 50));
 }

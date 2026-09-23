@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { FEED_PAGE_SIZE } from "@/lib/constants";
 import type { FeedCursor, FeedPage, Post } from "@/lib/types";
 import { mediaUrl } from "@/lib/media";
+import { safeHttpUrl, sanitizePostHtml } from "@/lib/sanitize";
 
 const POST_COLUMNS =
   "id, author_id, content_html, tags, images, link_url, link_title, link_description, link_image, created_at, updated_at, author:profiles(display_name)";
@@ -24,11 +25,13 @@ type PostRow = {
 
 function toPost(row: PostRow): Post {
   const author = Array.isArray(row.author) ? row.author[0] : row.author;
+  const linkUrl = safeHttpUrl(row.link_url);
   return {
     id: row.id,
     authorId: row.author_id,
     authorName: author?.display_name?.trim() || "잇룸",
-    contentHtml: row.content_html,
+    // 저장 경로 밖(SQL, REST)으로 들어온 HTML도 있을 수 있으므로 조회 시 다시 정화한다.
+    contentHtml: sanitizePostHtml(row.content_html ?? ""),
     tags: row.tags ?? [],
     images: (row.images ?? []).map((path, index) => ({
       path,
@@ -36,12 +39,12 @@ function toPost(row: PostRow): Post {
       alt: `첨부 이미지 ${index + 1}`,
     })),
     link:
-      row.link_url && row.link_title
+      linkUrl && row.link_title
         ? {
-            url: row.link_url,
+            url: linkUrl,
             title: row.link_title,
             description: row.link_description ?? "",
-            image: row.link_image ?? undefined,
+            image: safeHttpUrl(row.link_image) ?? undefined,
           }
         : null,
     createdAt: row.created_at,
@@ -97,3 +100,6 @@ export async function fetchPost(id: string): Promise<Post | null> {
 
 export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** PostgREST가 돌려주는 timestamptz 문자열 형태 (마이크로초 유지). */
+export const TIMESTAMP_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?([+-]\d{2}:\d{2}|Z)$/;

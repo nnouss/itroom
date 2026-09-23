@@ -41,7 +41,7 @@ export function TagInput({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="type-label inline-flex h-7 items-center gap-1 rounded-full bg-canvas pl-3 pr-1 text-ink"
+            className="type-label inline-flex h-9 items-center gap-0.5 rounded-full bg-canvas pl-3 pr-0.5 text-ink"
           >
             {tag}
             <button
@@ -49,9 +49,9 @@ export function TagInput({
               aria-label={`${tag} 태그 제거`}
               disabled={disabled}
               onClick={() => onChange(tags.filter((t) => t !== tag))}
-              className="inline-flex size-5 items-center justify-center rounded-full hover:bg-canvas-soft"
+              className="inline-flex size-8 items-center justify-center rounded-full hover:bg-canvas-soft"
             >
-              <X className="size-3" />
+              <X className="size-3.5" />
             </button>
           </span>
         ))}
