@@ -1,4 +1,4 @@
-import { SpaceBackdrop } from "@/components/auth/space-backdrop";
+import { SkyBackdrop } from "@/components/auth/sky-backdrop";
 export const dynamic = "force-dynamic";
 
 export default function AuthLayout({
@@ -7,8 +7,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark auth-scene relative min-h-dvh overflow-hidden bg-[#020305] text-ink">
-      <SpaceBackdrop />
+    <div className="dark auth-scene relative min-h-dvh overflow-hidden bg-[#2b2159] text-ink">
+      <SkyBackdrop />
       <main className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-12">
         <p className="type-display auth-logo mb-8 text-white">잇룸.</p>
         <section className="auth-glass w-full max-w-[400px] rounded-3xl p-6 sm:p-8">
