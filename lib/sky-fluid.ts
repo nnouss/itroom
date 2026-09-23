@@ -168,7 +168,8 @@ export class SkyFluid {
   private last = 0;
   private time = 0;
   private lastMove = -10;
-  private pointer = { x: -1, y: -1, dx: 0, dy: 0, moved: false };
+  /** 현재 위치와 직전 프레임에서 붓질을 시작한 위치 (uv) */
+  private pointer = { x: -1, y: -1, fromX: -1, fromY: -1, moved: false };
   private running = false;
   private disposed = false;
   private simRes: number;
@@ -327,18 +328,50 @@ export class SkyFluid {
     this.velocity.swap();
   }
 
+  /**
+   * 붓질: 직전 위치에서 현재 위치까지 경로를 따라 작은 속도 점을 찍는다.
+   * 속도는 커서 속도의 일부라서, 색이 커서를 살짝 늦게 따라오며 문질러진다.
+   */
+  private brush(dt: number) {
+    const p = this.pointer;
+    p.moved = false;
+    const ddx = p.x - p.fromX;
+    const ddy = p.y - p.fromY;
+    const dist = Math.hypot(ddx * this.aspect, ddy);
+    if (dist < 1e-4) return;
+    const w = this.velocity.read.w;
+    const h = this.velocity.read.h;
+    // uv/s -> 시뮬레이션 텍셀/s, 커서 속도의 45%
+    let vx = (ddx / Math.max(dt, 1 / 120)) * w * 0.45;
+    let vy = (ddy / Math.max(dt, 1 / 120)) * h * 0.45;
+    const speed = Math.hypot(vx, vy);
+    const MAX = 110;
+    if (speed > MAX) {
+      vx *= MAX / speed;
+      vy *= MAX / speed;
+    }
+    const steps = Math.min(12, Math.max(1, Math.ceil(dist / 0.012)));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      this.push(p.fromX + ddx * t, p.fromY + ddy * t, vx / steps * 2, vy / steps * 2, 0.045);
+    }
+  }
+
   pointerMove(clientX: number, clientY: number) {
     const rect = this.canvas.getBoundingClientRect();
     const x = (clientX - rect.left) / rect.width;
     const y = 1 - (clientY - rect.top) / rect.height;
     const p = this.pointer;
-    if (p.x >= 0) {
-      p.dx += (x - p.x) * 7000;
-      p.dy += (y - p.y) * 7000;
-      p.moved = true;
+    if (p.x < 0) {
+      p.fromX = x;
+      p.fromY = y;
+    } else if (!p.moved) {
+      p.fromX = p.x;
+      p.fromY = p.y;
     }
     p.x = x;
     p.y = y;
+    p.moved = true;
     this.lastMove = this.time;
   }
 
@@ -361,7 +394,7 @@ export class SkyFluid {
     gl.uniform2f(u.texel, ...vt);
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uCurl, this.bind(1, this.curlFbo.tex));
-    gl.uniform1f(u.curl, 30);
+    gl.uniform1f(u.curl, 3);
     gl.uniform1f(u.dt, dt);
     this.blit(this.velocity.write);
     this.velocity.swap();
@@ -400,7 +433,7 @@ export class SkyFluid {
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(0, this.velocity.read.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.dissipation, 0.4 + this.idle * 2.6);
+    gl.uniform1f(u.dissipation, 1.6 + this.idle * 3.0);
     this.blit(this.velocity.write);
     this.velocity.swap();
 
@@ -435,13 +468,7 @@ export class SkyFluid {
     this.time += dt;
     this.resize();
 
-    const p = this.pointer;
-    if (p.moved) {
-      this.push(p.x, p.y, p.dx, p.dy, 0.35);
-      p.dx = 0;
-      p.dy = 0;
-      p.moved = false;
-    }
+    if (this.pointer.moved) this.brush(dt);
 
     this.step(dt);
     this.render();
