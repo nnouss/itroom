@@ -96,3 +96,14 @@ Authentication > Users > Invite user에 회원 이메일을 입력합니다. 회
 - [Supabase SSR 클라이언트와 세션 갱신](https://supabase.com/docs/guides/auth/server-side/creating-a-client)
 - [열 단위 수정 권한](https://supabase.com/docs/guides/database/postgres/column-level-security)
 - [이메일 템플릿](https://supabase.com/docs/guides/auth/auth-email-templates)
+
+---
+
+## 실제 운영 정보 (2026-09-23 기준)
+
+- Supabase 프로젝트: `itroom` (ref `dikhxlwgquzfdvgwkzjd`, 서울 ap-northeast-2, 무료 플랜). 대시보드: https://supabase.com/dashboard/project/dikhxlwgquzfdvgwkzjd
+- 인증 설정은 `supabase/config.toml`이 원본이다. 바꾼 뒤 `supabase config push`로 반영한다. 스키마 변경은 `supabase/migrations/`에 새 파일을 추가하고 `supabase db push`.
+- Vercel: https://itroom.vercel.app (프로젝트 `itroom`, main 브랜치 push 시 자동 배포, 함수 리전 icn1). 환경 변수는 Production/Preview 모두 등록되어 있다.
+- 로컬 비밀값: `~/.config/itroom/` 아래 DB 비밀번호와 초기 계정 비밀번호. 저장소에는 넣지 않는다.
+- 회원 초대: 대시보드 Authentication > Users > Invite user. 초대 메일의 링크는 https://itroom.vercel.app 으로 돌아오며, 앱이 세션을 만들고 `/set-password`로 보낸다.
+- 테스트용 회원 `itroom-member-test@example.com`은 RLS 검증용이다. 필요 없으면 대시보드에서 삭제한다.
