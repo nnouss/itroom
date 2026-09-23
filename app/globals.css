@@ -179,7 +179,15 @@
   overflow-wrap: anywhere;
 }
 .post-content > * + * {
-  margin-top: 16px;
+  margin-top: 12px;
+}
+/* 엔터는 줄바꿈처럼: 문단 사이 간격 없이 이어 쓰고, 빈 줄로 문단을 나눈다 */
+.post-content > p + p {
+  margin-top: 0;
+}
+/* 저장된 빈 문단(<p></p>)도 에디터에서처럼 한 줄 높이를 차지하게 한다 */
+.post-content p:empty::before {
+  content: "\200b";
 }
 .post-content a {
   color: var(--accent);
@@ -295,14 +303,16 @@
   background: linear-gradient(140deg, #ffc27a 0%, #f47f5b 32%, #d9598f 62%, #6c4bb8 100%);
 }
 
-/* 글쓰기 본문: 문서 편집기처럼 큰 글씨와 넉넉한 행간 */
+/* 글쓰기 본문: 게시물과 같은 본문 크기. 넓은 화면에서만 한 단계 키운다. */
 .editor-surface {
-  font-size: 18px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.6;
   font-weight: 450;
 }
-.editor-surface > * + * {
-  margin-top: 14px;
+@media (min-width: 640px) {
+  .editor-surface {
+    font-size: 17px;
+  }
 }
 .app-shell:has(.editor-page) {
   background-color: var(--canvas);
