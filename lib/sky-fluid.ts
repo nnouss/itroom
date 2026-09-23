@@ -1,7 +1,8 @@
 /**
  * 노을 하늘 유체 배경 (WebGL2 Stable Fluids).
- * 화면 전체의 색(dye)이 노을 하늘과 산 능선이고, 포인터가 속도장을 흔들어 색을 휘젓는다.
- * 포인터가 멈추면 소용돌이가 잦아들고 색이 고정된 기준 화면으로 돌아간다.
+ * 색을 직접 옮기지 않고 "각 픽셀이 원래 하늘의 어느 좌표에서 왔는가"(원본 UV 맵)를 유체로 옮긴다.
+ * 화면 색 = sky(원본 UV). 포인터가 멈추면 원본 UV가 제자리로 미끄러져 돌아가
+ * 흐트러진 무늬가 거꾸로 풀리듯 정리된다 (크로스페이드가 아님).
  */
 
 const VS = `#version 300 es
@@ -80,15 +81,23 @@ void main() {
   vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * velTexel;
   outColor = texture(uSource, coord) / (1.0 + dissipation * dt);
 }`,
-  advectDye: HEAD + SKY + `
-uniform sampler2D uVelocity; uniform sampler2D uSource; uniform vec2 velTexel; uniform float dt; uniform float relax;
+  advectDye: HEAD + `
+uniform sampler2D uVelocity; uniform sampler2D uSource; uniform vec2 velTexel; uniform float dt; uniform float relax; uniform float restore;
 void main() {
-  vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * velTexel;
-  vec3 moved = texture(uSource, coord).rgb;
-  outColor = vec4(mix(moved, sky(vUv), clamp(relax * dt, 0.0, 1.0)), 1.0);
+  // 복원 흐름: 각 픽셀의 내용물은 자기 원래 자리(from) 쪽으로 실제로 이동한다.
+  // 그래서 소용돌이가 그 자리에서 옅어지지 않고 풀리면서 제자리로 돌아간다.
+  vec2 home = texture(uSource, vUv).xy;
+  vec2 back = (home - vUv) * restore;
+  vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * velTexel - dt * back;
+  // 화면 밖에서 들어오는 내용물은 원래 하늘 그대로 (가장자리 값이 번지지 않게)
+  bool outside = any(lessThan(coord, vec2(0.0))) || any(greaterThan(coord, vec2(1.0)));
+  vec2 from = outside ? coord : texture(uSource, coord).xy;
+  // 마지막 미세 오차만 약하게 보정
+  from = mix(from, vUv, clamp(relax * dt, 0.0, 1.0));
+  outColor = vec4(clamp(from, 0.0, 1.0), 0.0, 1.0);
 }`,
-  initDye: HEAD + SKY + `
-void main() { outColor = vec4(sky(vUv), 1.0); }`,
+  initDye: HEAD + `
+void main() { outColor = vec4(vUv, 0.0, 1.0); }`,
   divergence: HEAD + `
 uniform sampler2D uVelocity;
 void main() {
@@ -134,20 +143,19 @@ void main() {
   float T = texture(uPressure, vT).x; float B = texture(uPressure, vB).x;
   outColor = vec4(texture(uVelocity, vUv).xy - vec2(R - L, T - B), 0.0, 1.0);
 }`,
-  display: HEAD + `
-uniform sampler2D uDye; uniform float aspect; uniform float time; uniform vec2 res;
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  display: HEAD + SKY + `
+uniform sampler2D uDye; uniform vec2 res; uniform float clock;
 void main() {
-  vec3 c = texture(uDye, vUv).rgb;
+  vec3 c = sky(texture(uDye, vUv).xy);
   // 별: 어두운 윗하늘에만 희미하게 반짝인다
   vec2 g = floor(vUv * res / 3.0);
   float s = step(0.9965, hash(g)) * smoothstep(0.62, 0.95, vUv.y);
-  float tw = 0.6 + 0.4 * sin(time * (1.5 + hash(g + 3.0) * 3.0) + hash(g) * 6.28);
+  float tw = 0.6 + 0.4 * sin(clock * (1.5 + hash(g + 3.0) * 3.0) + hash(g) * 6.28);
   c += vec3(1.0, 0.95, 0.9) * s * tw * max(0.0, 0.55 - dot(c, vec3(0.3, 0.5, 0.2)) * 1.4);
   // 비네팅 + 필름 그레인
   vec2 q = vUv - 0.5;
   c *= 1.0 - dot(q, q) * 0.45;
-  c += (hash(vUv * res + fract(time) * 100.0) - 0.5) * 0.018;
+  c += (hash(vUv * res + fract(clock) * 100.0) - 0.5) * 0.018;
   outColor = vec4(max(c, 0.0), 1.0);
 }`,
 };
@@ -443,7 +451,8 @@ export class SkyFluid {
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(1, this.dye.read.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.relax, 0.12 + this.idle * 1.1);
+    gl.uniform1f(u.relax, 0.02 + this.idle * 0.5);
+    gl.uniform1f(u.restore, this.idle * 2.2);
     gl.uniform1f(u.aspect, this.aspect);
     gl.uniform1f(u.time, 0); // 기준 하늘은 고정: 멈추면 항상 처음 화면으로 돌아온다
     this.blit(this.dye.write);
@@ -456,7 +465,8 @@ export class SkyFluid {
     gl.uniform2f(u.texel, 1 / this.dye.read.w, 1 / this.dye.read.h);
     gl.uniform1i(u.uDye, this.bind(0, this.dye.read.tex));
     gl.uniform1f(u.aspect, this.aspect);
-    gl.uniform1f(u.time, this.time);
+    gl.uniform1f(u.time, 0);
+    gl.uniform1f(u.clock, this.time);
     gl.uniform2f(u.res, this.canvas.width, this.canvas.height);
     this.blit(null);
   }
