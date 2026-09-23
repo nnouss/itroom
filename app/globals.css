@@ -295,11 +295,22 @@
   background: linear-gradient(140deg, #ffc27a 0%, #f47f5b 32%, #d9598f 62%, #6c4bb8 100%);
 }
 
-/* 글쓰기 본문: 문서 편집기처럼 큰 글씨와 넉넉한 행간 */
+/* 글쓰기 본문: 문서 편집기처럼 큰 글씨와 넉넉한 행간. 화면 폭에 따라 16 → 17 → 18px */
 .editor-surface {
-  font-size: 18px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.7;
   font-weight: 450;
+}
+@media (min-width: 640px) {
+  .editor-surface {
+    font-size: 17px;
+  }
+}
+@media (min-width: 1024px) {
+  .editor-surface {
+    font-size: 18px;
+    line-height: 1.75;
+  }
 }
 .editor-surface > * + * {
   margin-top: 14px;
