@@ -231,3 +231,158 @@
 .post-content li + li { margin-top: 4px; }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* 인증 화면: 우주 배경 + 유리 카드 (이 화면에만 blur를 허용한다) */
+.space-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #06080e;
+}
+.space-stars {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.space-nebula {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  will-change: transform;
+}
+.space-nebula-a {
+  width: 70vmax;
+  height: 70vmax;
+  left: -25vmax;
+  top: -30vmax;
+  background: radial-gradient(closest-side, rgba(56, 110, 255, 0.8), rgba(56, 110, 255, 0) 70%);
+  animation: nebula-drift 26s ease-in-out infinite alternate;
+}
+.space-nebula-b {
+  width: 60vmax;
+  height: 60vmax;
+  right: -25vmax;
+  top: -10vmax;
+  background: radial-gradient(closest-side, rgba(0, 220, 255, 0.5), rgba(0, 220, 255, 0) 70%);
+  animation: nebula-drift 34s ease-in-out infinite alternate-reverse;
+}
+.space-nebula-c {
+  width: 50vmax;
+  height: 50vmax;
+  left: 20vmax;
+  bottom: -30vmax;
+  background: radial-gradient(closest-side, rgba(150, 90, 255, 0.55), rgba(150, 90, 255, 0) 70%);
+  animation: nebula-drift 40s ease-in-out infinite alternate;
+}
+@keyframes nebula-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(6vmax, 4vmax, 0) scale(1.15); }
+}
+.space-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 42vh;
+  perspective: 520px;
+  perspective-origin: 50% 0%;
+  mask-image: linear-gradient(to bottom, transparent, black 35%, black 80%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 35%, black 80%, transparent);
+}
+.space-grid {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  top: 0;
+  height: 200%;
+  transform: rotateX(72deg);
+  transform-origin: 50% 0%;
+  background-image:
+    linear-gradient(rgba(120, 190, 255, 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 190, 255, 0.28) 1px, transparent 1px);
+  background-size: 72px 72px;
+  animation: grid-scroll 3s linear infinite;
+}
+@keyframes grid-scroll {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 72px, 0 0; }
+}
+.space-planet {
+  position: absolute;
+  top: -8vmin;
+  right: -6vmin;
+  width: 38vmin;
+  height: 38vmin;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(190, 220, 255, 0.95), rgba(70, 120, 230, 0.9) 30%, rgba(14, 22, 60, 1) 62%, #05070d 100%);
+  box-shadow:
+    inset -18px -22px 60px rgba(0, 0, 0, 0.75),
+    0 0 90px rgba(90, 150, 255, 0.35),
+    0 0 220px rgba(60, 110, 255, 0.2);
+  animation: planet-spin 60s linear infinite;
+}
+.space-planet::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 70% 75%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+.space-planet-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 165%;
+  height: 165%;
+  transform: translate(-50%, -50%) rotateX(74deg) rotateZ(-18deg);
+  border-radius: 9999px;
+  border: 10px solid rgba(160, 200, 255, 0.35);
+  box-shadow: 0 0 30px rgba(120, 170, 255, 0.35);
+  mask-image: linear-gradient(to bottom, black 48%, transparent 52%);
+  -webkit-mask-image: linear-gradient(to bottom, black 48%, transparent 52%);
+}
+@keyframes planet-spin {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(20deg); }
+}
+.space-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(6, 8, 14, 0) 30%, rgba(6, 8, 14, 0.75) 100%);
+}
+.auth-logo {
+  letter-spacing: 0;
+  text-shadow: 0 0 40px rgba(120, 170, 255, 0.55);
+}
+.auth-glass {
+  background: rgba(14, 18, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.auth-scene {
+  --canvas: #06080e;
+  --canvas-soft: rgba(255, 255, 255, 0.08);
+  --field: rgba(255, 255, 255, 0.09);
+  --hairline-soft: rgba(255, 255, 255, 0.12);
+  --hairline: rgba(255, 255, 255, 0.2);
+  --ink: #ffffff;
+  --on-ink: #06080e;
+  --text-muted: rgba(255, 255, 255, 0.62);
+  --text-faint: rgba(255, 255, 255, 0.38);
+}
+.auth-scene [data-slot="input"]:focus-visible {
+  outline-color: rgba(255, 255, 255, 0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .space-nebula,
+  .space-grid,
+  .space-planet {
+    animation: none !important;
+  }
+}
