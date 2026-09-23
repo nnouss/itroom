@@ -44,7 +44,10 @@ function toPost(row: PostRow): Post {
             url: linkUrl,
             title: row.link_title,
             description: row.link_description ?? "",
-            image: safeHttpUrl(row.link_image) ?? undefined,
+            // 외부 썸네일은 /og 경로로 서버가 대신 받는다. 수정 시각으로 브라우저 캐시를 갱신한다.
+            image: safeHttpUrl(row.link_image)
+              ? `/og/${row.id}?v=${Date.parse(row.updated_at) || 0}`
+              : undefined,
           }
         : null,
     createdAt: row.created_at,

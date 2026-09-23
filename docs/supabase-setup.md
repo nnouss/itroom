@@ -50,6 +50,13 @@ SQL Editor에서 [`supabase/migrations/0001_init.sql`](../supabase/migrations/00
 
 `profiles_update_self`는 본인 행만 허용하며, 추가 열 권한으로 `display_name`만 변경할 수 있습니다. 회원이 자신의 `role`을 owner로 바꾸는 것을 막기 위한 설정입니다. 역할 변경은 SQL Editor에서만 수행합니다.
 
+[`0002_security_hardening.sql`](../supabase/migrations/0002_security_hardening.sql)은 보안 점검 후속 조치입니다 (`supabase db push`).
+
+- `posts`는 본문 관련 열만 쓰기 권한이 있어 id·작성자·작성 시각을 바꿀 수 없습니다.
+- 표시 이름은 1~30자이고, 회원은 owner 이름이나 운영 명칭(잇룸, 관리자 등)을 쓸 수 없습니다. 초대 시 이름을 주지 않으면 이메일 @ 앞부분이 이름이 됩니다([`0003`](../supabase/migrations/0003_default_display_name_from_email.sql)). 그 이름이 운영 명칭이나 owner 이름과 겹치면 `회원`이 됩니다.
+- `post-images` 버킷은 10MB, jpg/png/gif/webp만 받고, 업로더 본인 폴더(`<user id>/...`)에만 올릴 수 있습니다.
+- `public` 스키마에 새로 만드는 테이블·함수는 기본으로 anon/authenticated에 열리지 않습니다. 새 테이블은 RLS를 켜고 필요한 권한을 직접 `grant`하세요.
+
 ## 5. 본인 초대 및 최초 비밀번호 설정
 
 **메일 링크를 열기 전에 7번의 `.env.local` 설정을 먼저 마치고 `pnpm dev`를 실행하세요.** 환경 변수 없이 초대 링크를 열면 인증할 수 없습니다.
@@ -106,4 +113,4 @@ Authentication > Users > Invite user에 회원 이메일을 입력합니다. 회
 - Vercel: https://itroom.vercel.app (프로젝트 `itroom`, main 브랜치 push 시 자동 배포, 함수 리전 icn1). 환경 변수는 Production/Preview 모두 등록되어 있다.
 - 로컬 비밀값: `~/.config/itroom/` 아래 DB 비밀번호와 초기 계정 비밀번호. 저장소에는 넣지 않는다.
 - 회원 초대: 대시보드 Authentication > Users > Invite user. 초대 메일의 링크는 https://itroom.vercel.app 으로 돌아오며, 앱이 세션을 만들고 `/set-password`로 보낸다.
-- 테스트용 회원 `itroom-member-test@example.com`은 RLS 검증용이다. 필요 없으면 대시보드에서 삭제한다.
+- 테스트용 회원 계정은 2026-09-23 보안 점검 후 삭제했다. RLS 검증은 `set local role` + `request.jwt.claims`로 역할을 흉내 내고 `rollback`하는 SQL로 한다.

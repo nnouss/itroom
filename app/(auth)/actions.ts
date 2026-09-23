@@ -72,6 +72,12 @@ export async function updatePassword(formData: FormData): Promise<AuthState> {
           "링크가 만료되었거나 잘못되었습니다. 메일에서 링크를 다시 열어주세요.",
       };
     const { error } = await supabase.auth.updateUser({ password });
+    // secure_password_change: 로그인한 지 24시간이 넘은 세션은 재인증 없이 비밀번호를 바꿀 수 없다.
+    if (error?.code === "reauthentication_needed")
+      return {
+        error:
+          "보안을 위해 로그인 화면에서 비밀번호 재설정 메일을 받아 다시 진행해주세요.",
+      };
     if (error)
       return {
         error:
