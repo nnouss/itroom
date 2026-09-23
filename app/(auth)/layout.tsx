@@ -7,7 +7,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark auth-scene relative min-h-dvh overflow-hidden bg-[#06080e] text-ink">
+    <div className="dark auth-scene relative min-h-dvh overflow-hidden bg-[#020305] text-ink">
       <SpaceBackdrop />
       <main className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-12">
         <p className="type-display auth-logo mb-8 text-white">잇룸.</p>
