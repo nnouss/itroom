@@ -22,6 +22,8 @@ import { TagChip } from "./tag-chip";
 import { DeletePostDialog } from "./delete-post-dialog";
 import type { Post } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { AvatarMark } from "@/components/ui/avatar-mark";
+import { Card } from "@/components/layout/card";
 
 export function PostRow({
   post,
@@ -30,7 +32,6 @@ export function PostRow({
   activeTag,
   afterDelete = "refresh",
   onDeleted,
-  standalone = false,
 }: {
   post: Post;
   isOwner: boolean;
@@ -38,43 +39,33 @@ export function PostRow({
   activeTag?: string | null;
   afterDelete?: "refresh" | "home" | "none";
   onDeleted?: (id: string) => void;
-  /** 상세 화면: 구분선 없이 단독 표시 */
-  standalone?: boolean;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const multiple = post.images.length > 1;
   const edited = post.updatedAt !== post.createdAt;
   return (
-    <article
-      className={cn(
-        "grid min-w-0 grid-cols-[36px_minmax(0,1fr)] gap-3 py-4 md:py-6",
-        !standalone && "border-b border-hairline-soft",
-      )}
-    >
-      <div
-        aria-hidden="true"
-        className="type-label flex size-9 items-center justify-center rounded-full bg-canvas-soft"
-      >
-        {Array.from(post.authorName)[0]}
-      </div>
+    <Card className="min-w-0 px-4 pt-3 pb-4">
+    <article className="min-w-0">
       <div className="min-w-0">
-        <div className="mb-2 flex min-h-9 items-center gap-2">
-          <h2 className="type-title min-w-0 truncate font-[650]">{post.authorName}</h2>
-          <span className="type-caption shrink-0 text-text-muted">·</span>
-          <Link
-            href={`/posts/${post.id}`}
-            className="type-caption shrink-0 rounded-full text-text-muted hover:underline"
-          >
-            <time dateTime={post.createdAt}>{relativeTime}</time>
-            {edited && <span> (수정됨)</span>}
-          </Link>
+        <div className="mb-3 flex items-center gap-3">
+          <AvatarMark name={post.authorName} size={40} />
+          <div className="min-w-0 flex-1">
+            <h2 className="type-title min-w-0 truncate text-[15px] font-[650]">{post.authorName}</h2>
+            <Link
+              href={`/posts/${post.id}`}
+              className="type-caption rounded-full text-text-muted hover:underline"
+            >
+              <time dateTime={post.createdAt}>{relativeTime}</time>
+              {edited && <span> · 수정됨</span>}
+            </Link>
+          </div>
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="ml-auto shrink-0"
+                  className="shrink-0"
                   aria-label="게시물 메뉴"
                 >
                   <MoreHorizontal />
@@ -98,7 +89,7 @@ export function PostRow({
             </DropdownMenu>
           )}
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {post.contentHtml && (
             <div
               className="post-content type-body"
@@ -174,5 +165,6 @@ export function PostRow({
         />
       )}
     </article>
+    </Card>
   );
 }

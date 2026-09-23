@@ -3,11 +3,15 @@
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 @custom-variant dark (&:is(.dark *));
 :root {
+  --page: #f0f2f5;
+  --tint-photo: #2f9e62;
+  --tint-link: #2f6fe0;
+  --tint-tag: #db6a3a;
   --canvas: #ffffff;
-  --canvas-soft: #f3f3f3;
+  --canvas-soft: #f2f2f2;
   --field: #f0f0f0;
-  --hairline-soft: #f0f0f0;
-  --hairline: #e0e0e0;
+  --hairline-soft: #ebebeb;
+  --hairline: #dcdcdc;
   --ink: #141414;
   --ink-soft: #262626;
   --on-ink: #ffffff;
@@ -19,11 +23,15 @@
   --scrim: rgba(0, 0, 0, 0.5);
 }
 .dark {
-  --canvas: #141414;
-  --canvas-soft: #1f1f1f;
-  --field: #232323;
-  --hairline-soft: #232323;
-  --hairline: #333333;
+  --page: #0b0b0c;
+  --tint-photo: #4cc486;
+  --tint-link: #5b95f5;
+  --tint-tag: #f08a5d;
+  --canvas: #161616;
+  --canvas-soft: #232323;
+  --field: #262626;
+  --hairline-soft: #262626;
+  --hairline: #363636;
   --ink: #f5f5f5;
   --ink-soft: #e0e0e0;
   --on-ink: #141414;
@@ -55,6 +63,10 @@
   --radius: 1rem;
 }
 @theme inline {
+  --color-page: var(--page);
+  --color-tint-photo: var(--tint-photo);
+  --color-tint-link: var(--tint-link);
+  --color-tint-tag: var(--tint-tag);
   --color-canvas: var(--canvas);
   --color-canvas-soft: var(--canvas-soft);
   --color-field: var(--field);
@@ -276,4 +288,22 @@
 }
 .auth-scene [data-slot="input"]:focus-visible {
   outline-color: rgba(255, 255, 255, 0.9);
+}
+
+/* 노을 그라데이션: 아바타와 로고 (로그인 화면의 하늘과 같은 색) */
+.avatar-sunset {
+  background: linear-gradient(140deg, #ffc27a 0%, #f47f5b 32%, #d9598f 62%, #6c4bb8 100%);
+}
+
+/* 글쓰기 본문: 문서 편집기처럼 큰 글씨와 넉넉한 행간 */
+.editor-surface {
+  font-size: 18px;
+  line-height: 1.75;
+  font-weight: 450;
+}
+.editor-surface > * + * {
+  margin-top: 14px;
+}
+.app-shell:has(.editor-page) {
+  background-color: var(--canvas);
 }

@@ -15,6 +15,7 @@ import { discardUploads, savePost, type SavePostResult } from "@/app/(app)/posts
 import { uploadImage, UploadError } from "@/lib/upload";
 import { mediaUrl, pathFromMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
+import { setLeaveGuard } from "@/lib/leave-guard";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
@@ -32,14 +33,12 @@ export function PostEditor({
   mode,
   postId,
   userId,
-  authorInitial,
   initialHtml = "",
   initialTags = [],
 }: {
   mode: "create" | "edit";
   postId?: string;
   userId: string;
-  authorInitial: string;
   initialHtml?: string;
   initialTags?: string[];
 }) {
@@ -47,6 +46,7 @@ export function PostEditor({
   const [tags, setTags] = useState(initialTags);
   const [uploading, setUploading] = useState(0);
   const [dirty, setDirty] = useState(false);
+  const [chars, setChars] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -72,11 +72,11 @@ export function PostEditor({
         },
       }),
       TiptapImage.configure({ inline: false, allowBase64: false }),
-      Placeholder.configure({ placeholder: "무슨 소식인가요?" }),
+      Placeholder.configure({ placeholder: "무슨 소식을 전할까요?" }),
     ],
     editorProps: {
       attributes: {
-        class: "tiptap post-content type-body min-h-40 outline-none",
+        class: "tiptap post-content editor-surface min-h-[45dvh] outline-none",
         "aria-label": "본문",
       },
       handlePaste: (_view, event) => {
@@ -94,7 +94,11 @@ export function PostEditor({
         return true;
       },
     },
-    onUpdate: () => setDirty(true),
+    onCreate: ({ editor }) => setChars(editor.getText().trim().length),
+    onUpdate: ({ editor }) => {
+      setDirty(true);
+      setChars(editor.getText().trim().length);
+    },
   });
 
   const addImages = useCallback(
@@ -170,38 +174,60 @@ export function PostEditor({
     cleanupUnused(new Set());
     router.push(mode === "create" ? "/" : `/posts/${postId}`);
   };
+  // 에디터 밖 링크(헤더의 뒤로, 탭)로 나갈 때도 같은 확인을 거친다
+  useEffect(() => {
+    setLeaveGuard(() => {
+      if (!dirty || submitted.current) return true;
+      if (!window.confirm("작성 중인 내용이 사라집니다. 나갈까요?")) return false;
+      submitted.current = true;
+      const unused = [...uploaded.current];
+      if (unused.length > 0) void discardUploads(unused).catch(() => {});
+      return true;
+    });
+    return () => setLeaveGuard(null);
+  }, [dirty]);
   const currentHref = editor?.getAttributes("link").href ?? "";
   const busy = pending || !editor;
 
   return (
-    <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 py-4 md:py-6">
-      <div aria-hidden="true" className="type-label flex size-9 items-center justify-center rounded-full bg-canvas-soft">
-        {authorInitial}
-      </div>
-      <div className="min-w-0 space-y-4">
-        {editor && (
-          <Toolbar
-            editor={editor}
-            uploading={uploading}
-            onPickImages={(files) => void addImages(files)}
-            onLink={() => setLinkOpen(true)}
-            disabled={pending}
-          />
-        )}
+    // editor-page: 앱 셸이 이 표시를 보고 페이지 바탕을 문서 면(canvas)으로 바꾼다
+    <div className="editor-page -mt-3 px-4 pb-28 sm:-mt-5 sm:px-0">
+      {editor ? (
+        <Toolbar
+          editor={editor}
+          uploading={uploading}
+          onPickImages={(files) => void addImages(files)}
+          onLink={() => setLinkOpen(true)}
+          disabled={pending}
+        />
+      ) : (
+        <div aria-hidden="true" className="-mx-4 h-12 border-b border-hairline-soft sm:mx-0" />
+      )}
+      <div className="py-8">
         {editor ? (
           <EditorContent editor={editor} />
         ) : (
-          <div className="min-h-40 rounded-2xl bg-canvas-soft" aria-hidden="true" />
+          <div className="min-h-[45dvh]" aria-hidden="true" />
         )}
-        <TagInput tags={tags} onChange={(next) => { setTags(next); setDirty(true); }} disabled={pending} />
-        {error && (
-          <p role="alert" className="type-body-sm text-text-muted">{error}</p>
-        )}
-        <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t border-hairline-soft bg-canvas px-4 py-3 md:static md:mx-0 md:border-0 md:px-0 md:py-0">
-          <Button type="button" variant="outline" disabled={pending} onClick={cancel}>취소</Button>
+      </div>
+      <TagInput tags={tags} onChange={(next) => { setTags(next); setDirty(true); }} disabled={pending} />
+
+      {/* 작업 바: 문서와 분리된 하단 고정 영역 */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline-soft bg-page pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto flex h-16 max-w-[680px] items-center gap-3 px-4">
+          <p className="type-caption min-w-0 flex-1 truncate text-text-muted" aria-live="polite">
+            {error ? (
+              <span role="alert" className="text-destructive">{error}</span>
+            ) : uploading > 0 ? (
+              `이미지 ${uploading}개 올리는 중`
+            ) : (
+              `${chars.toLocaleString("ko-KR")}자`
+            )}
+          </p>
+          <Button type="button" variant="outline" className="w-[88px]" disabled={pending} onClick={cancel}>취소</Button>
           <Button
             type="button"
-            className={cn("relative", pending && "pl-9")}
+            className={cn("relative w-[88px]", pending && "pl-9")}
             disabled={busy || uploading > 0}
             onClick={submit}
           >

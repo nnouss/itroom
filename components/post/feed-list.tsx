@@ -73,7 +73,7 @@ export function FeedList({
   };
 
   return (
-    <>
+    <div className="space-y-3">
       {posts.map((post, index) => (
         <div
           key={post.id}
@@ -91,16 +91,19 @@ export function FeedList({
         </div>
       ))}
       {cursor ? (
-        <div ref={sentinel} aria-live="polite" className="space-y-6 py-4">
+        <div ref={sentinel} aria-live="polite" className="space-y-3">
           {!error &&
             [0, 1].map((n) => (
-              <div key={n} className="grid grid-cols-[36px_minmax(0,1fr)] gap-3">
-                <Skeleton className="size-9 rounded-full" />
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-32 rounded-full" />
-                  <Skeleton className="h-4 w-full rounded-full" />
-                  <Skeleton className="h-4 w-4/5 rounded-full" />
+              <div key={n} className="space-y-3 border-y border-hairline-soft bg-canvas px-4 py-4 sm:rounded-2xl sm:border">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-10 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3.5 w-28 rounded-full" />
+                    <Skeleton className="h-3 w-16 rounded-full" />
+                  </div>
                 </div>
+                <Skeleton className="h-4 w-full rounded-full" />
+                <Skeleton className="h-4 w-4/5 rounded-full" />
               </div>
             ))}
           {error && (
@@ -122,6 +125,6 @@ export function FeedList({
           <p className="type-caption py-8 text-center text-text-faint">마지막 소식입니다.</p>
         )
       )}
-    </>
+    </div>
   );
 }

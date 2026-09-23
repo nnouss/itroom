@@ -18,7 +18,6 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
         mode="edit"
         postId={post.id}
         userId={user.id}
-        authorInitial={Array.from(profile.displayName)[0] ?? "잇"}
         initialHtml={joinImages(post.contentHtml, post.images.map((image) => image.path))}
         initialTags={post.tags}
       />

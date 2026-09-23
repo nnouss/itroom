@@ -7,8 +7,8 @@ export default async function WritePage() {
   if (profile.role !== "owner") redirect("/");
   return (
     <>
-      <h1 className="sr-only">새 소식 작성</h1>
-      <PostEditor mode="create" userId={user.id} authorInitial={Array.from(profile.displayName)[0] ?? "잇"} />
+      <h1 className="sr-only">새 소식 쓰기</h1>
+      <PostEditor mode="create" userId={user.id} />
     </>
   );
 }
