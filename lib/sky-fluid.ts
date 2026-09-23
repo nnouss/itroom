@@ -1,8 +1,8 @@
 /**
  * 노을 하늘 유체 배경 (WebGL2 Stable Fluids).
- * 색을 직접 옮기지 않고 "각 픽셀이 원래 하늘의 어느 좌표에서 왔는가"(원본 UV 맵)를 유체로 옮긴다.
- * 화면 색 = sky(원본 UV). 포인터가 멈추면 원본 UV가 제자리로 미끄러져 돌아가
- * 흐트러진 무늬가 거꾸로 풀리듯 정리된다 (크로스페이드가 아님).
+ * 화면 전체의 색(dye)이 노을 하늘과 산 능선이고, 포인터가 지나가며 색을 문질러 섞는다.
+ * 흐트러진 정도(기준 하늘과의 차이)는 흐름을 따라 움직이면서 조금씩 번지고(확산) 옅어져,
+ * 잉크가 물에 풀리듯 자연스럽게 하늘에 스며든다. 기준 하늘은 한 번 구워 둔 텍스처다.
  */
 
 const VS = `#version 300 es
@@ -82,22 +82,23 @@ void main() {
   outColor = texture(uSource, coord) / (1.0 + dissipation * dt);
 }`,
   advectDye: HEAD + `
-uniform sampler2D uVelocity; uniform sampler2D uSource; uniform vec2 velTexel; uniform float dt; uniform float relax; uniform float restore;
+uniform sampler2D uVelocity; uniform sampler2D uSource; uniform sampler2D uBase;
+uniform vec2 velTexel; uniform vec2 dyeTexel; uniform float dt; uniform float decay; uniform float diffuse;
 void main() {
-  // 복원 흐름: 각 픽셀의 내용물은 자기 원래 자리(from) 쪽으로 실제로 이동한다.
-  // 그래서 소용돌이가 그 자리에서 옅어지지 않고 풀리면서 제자리로 돌아간다.
-  vec2 home = texture(uSource, vUv).xy;
-  vec2 back = (home - vUv) * restore;
-  vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * velTexel - dt * back;
-  // 화면 밖에서 들어오는 내용물은 원래 하늘 그대로 (가장자리 값이 번지지 않게)
-  bool outside = any(lessThan(coord, vec2(0.0))) || any(greaterThan(coord, vec2(1.0)));
-  vec2 from = outside ? coord : texture(uSource, coord).xy;
-  // 마지막 미세 오차만 약하게 보정
-  from = mix(from, vUv, clamp(relax * dt, 0.0, 1.0));
-  outColor = vec4(clamp(from, 0.0, 1.0), 0.0, 1.0);
+  vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * velTexel;
+  // 흐름을 따라 옮겨진 색과 이 자리의 기준 하늘의 차이 = 흐트러진 정도
+  vec2 o = dyeTexel * 1.5;
+  vec3 e0 = texture(uSource, coord).rgb - texture(uBase, vUv).rgb;
+  vec3 e1 = texture(uSource, coord + vec2(o.x, 0.0)).rgb - texture(uBase, vUv + vec2(o.x, 0.0)).rgb;
+  vec3 e2 = texture(uSource, coord - vec2(o.x, 0.0)).rgb - texture(uBase, vUv - vec2(o.x, 0.0)).rgb;
+  vec3 e3 = texture(uSource, coord + vec2(0.0, o.y)).rgb - texture(uBase, vUv + vec2(0.0, o.y)).rgb;
+  vec3 e4 = texture(uSource, coord - vec2(0.0, o.y)).rgb - texture(uBase, vUv - vec2(0.0, o.y)).rgb;
+  // 확산: 가는 결부터 풀리고 큰 덩어리는 번지며 녹아든다. 그리고 아주 천천히 옅어진다.
+  vec3 e = mix(e0, (e1 + e2 + e3 + e4) * 0.25, diffuse) * exp(-decay * dt);
+  outColor = vec4(texture(uBase, vUv).rgb + e, 1.0);
 }`,
-  initDye: HEAD + `
-void main() { outColor = vec4(vUv, 0.0, 1.0); }`,
+  initDye: HEAD + SKY + `
+void main() { outColor = vec4(sky(vUv), 1.0); }`,
   divergence: HEAD + `
 uniform sampler2D uVelocity;
 void main() {
@@ -143,10 +144,11 @@ void main() {
   float T = texture(uPressure, vT).x; float B = texture(uPressure, vB).x;
   outColor = vec4(texture(uVelocity, vUv).xy - vec2(R - L, T - B), 0.0, 1.0);
 }`,
-  display: HEAD + SKY + `
+  display: HEAD + `
 uniform sampler2D uDye; uniform vec2 res; uniform float clock;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main() {
-  vec3 c = sky(texture(uDye, vUv).xy);
+  vec3 c = texture(uDye, vUv).rgb;
   // 별: 어두운 윗하늘에만 희미하게 반짝인다
   vec2 g = floor(vUv * res / 3.0);
   float s = step(0.9965, hash(g)) * smoothstep(0.62, 0.95, vUv.y);
@@ -169,6 +171,7 @@ export class SkyFluid {
   private programs: Record<keyof typeof FS, Program>;
   private velocity!: DoubleFBO;
   private dye!: DoubleFBO;
+  private base!: FBO;
   private pressure!: DoubleFBO;
   private divergenceFbo!: FBO;
   private curlFbo!: FBO;
@@ -291,10 +294,12 @@ export class SkyFluid {
     this.divergenceFbo = this.fbo(sim.w, sim.h, gl.R16F, gl.RED);
     this.curlFbo = this.fbo(sim.w, sim.h, gl.R16F, gl.RED);
     this.dye = this.double(dye.w, dye.h, gl.RGBA16F, gl.RGBA);
+    this.base = this.fbo(dye.w, dye.h, gl.RGBA16F, gl.RGBA);
     const u = this.use(this.programs.initDye);
     gl.uniform2f(u.texel, 1 / dye.w, 1 / dye.h);
     gl.uniform1f(u.aspect, this.aspect);
     gl.uniform1f(u.time, 0);
+    this.blit(this.base);
     this.blit(this.dye.read);
   }
 
@@ -383,9 +388,9 @@ export class SkyFluid {
     this.lastMove = this.time;
   }
 
-  /** 마우스가 멈춘 뒤 0.5초부터 2.5초까지 0 -> 1 */
+  /** 마우스가 멈춘 뒤 0.3초부터 3.3초까지 0 -> 1 */
   private get idle() {
-    const t = Math.min(Math.max((this.time - this.lastMove - 0.5) / 2.0, 0), 1);
+    const t = Math.min(Math.max((this.time - this.lastMove - 0.3) / 3.0, 0), 1);
     return t * t * (3 - 2 * t);
   }
 
@@ -402,7 +407,7 @@ export class SkyFluid {
     gl.uniform2f(u.texel, ...vt);
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uCurl, this.bind(1, this.curlFbo.tex));
-    gl.uniform1f(u.curl, 3);
+    gl.uniform1f(u.curl, 8);
     gl.uniform1f(u.dt, dt);
     this.blit(this.velocity.write);
     this.velocity.swap();
@@ -441,20 +446,21 @@ export class SkyFluid {
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(0, this.velocity.read.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.dissipation, 1.6 + this.idle * 3.0);
+    gl.uniform1f(u.dissipation, 0.9 + this.idle * 0.6);
     this.blit(this.velocity.write);
     this.velocity.swap();
 
     u = this.use(this.programs.advectDye);
     gl.uniform2f(u.texel, 1 / this.dye.read.w, 1 / this.dye.read.h);
+    gl.uniform2f(u.dyeTexel, 1 / this.dye.read.w, 1 / this.dye.read.h);
     gl.uniform2f(u.velTexel, ...vt);
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(1, this.dye.read.tex));
+    gl.uniform1i(u.uBase, this.bind(2, this.base.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.relax, 0.02 + this.idle * 0.5);
-    gl.uniform1f(u.restore, this.idle * 2.2);
-    gl.uniform1f(u.aspect, this.aspect);
-    gl.uniform1f(u.time, 0); // 기준 하늘은 고정: 멈추면 항상 처음 화면으로 돌아온다
+    // 움직이는 동안은 섞인 무늬가 오래 남고, 멈추면 조금 더 빨리 스며든다
+    gl.uniform1f(u.decay, 0.12 + this.idle * 0.33);
+    gl.uniform1f(u.diffuse, 0.10 + this.idle * 0.12);
     this.blit(this.dye.write);
     this.dye.swap();
   }
@@ -464,8 +470,6 @@ export class SkyFluid {
     const u = this.use(this.programs.display);
     gl.uniform2f(u.texel, 1 / this.dye.read.w, 1 / this.dye.read.h);
     gl.uniform1i(u.uDye, this.bind(0, this.dye.read.tex));
-    gl.uniform1f(u.aspect, this.aspect);
-    gl.uniform1f(u.time, 0);
     gl.uniform1f(u.clock, this.time);
     gl.uniform2f(u.res, this.canvas.width, this.canvas.height);
     this.blit(null);
