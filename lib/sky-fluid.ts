@@ -1,7 +1,7 @@
 /**
  * 노을 하늘 유체 배경 (WebGL2 Stable Fluids).
- * 화면 전체의 색(dye)이 노을 하늘이고, 포인터가 속도장을 흔들어 색을 휘젓는다.
- * 휘저은 색은 매 프레임 기준 하늘(구름이 흐르는 절차적 노을)로 조금씩 되돌아간다.
+ * 화면 전체의 색(dye)이 노을 하늘과 산 능선이고, 포인터가 속도장을 흔들어 색을 휘젓는다.
+ * 포인터가 멈추면 소용돌이가 잦아들고 색이 고정된 기준 화면으로 돌아간다.
  */
 
 const VS = `#version 300 es
@@ -30,6 +30,7 @@ float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
 }
+float noise1(float x) { float i = floor(x), f = fract(x); return mix(hash(vec2(i, 0.0)), hash(vec2(i + 1.0, 0.0)), f * f * (3.0 - 2.0 * f)); }
 float fbm(vec2 p) {
   float v = 0.0, a = 0.5;
   for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + vec2(17.3, 9.1); a *= 0.5; }
@@ -55,6 +56,13 @@ vec3 sky(vec2 uv) {
   // 해 주변 광
   vec2 d = (uv - SUN) * vec2(aspect, 1.0);
   c += vec3(1.0, 0.72, 0.42) * exp(-dot(d, d) * 9.0) * 0.55;
+  // 산 능선: 유체가 옮기는 색 안에 그려서 땅도 함께 휘저어진다
+  float x = p.x;
+  float far = 0.13 + 0.035 * noise1(x * 2.2 + 4.0) + 0.012 * noise1(x * 9.0);
+  float near = 0.075 + 0.05 * noise1(x * 1.3 + 11.0) + 0.012 * noise1(x * 7.0 + 2.0) + 0.004 * noise1(x * 40.0);
+  float edge = 0.0025;
+  c = mix(c, mix(c, vec3(0.22, 0.12, 0.24), 0.72), smoothstep(far + edge, far - edge, y));
+  c = mix(c, vec3(0.06, 0.04, 0.08), smoothstep(near + edge, near - edge, y));
   return c;
 }
 `;
@@ -129,21 +137,13 @@ void main() {
   display: HEAD + `
 uniform sampler2D uDye; uniform float aspect; uniform float time; uniform vec2 res;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise1(float x) { float i = floor(x), f = fract(x); return mix(hash(vec2(i, 0.0)), hash(vec2(i + 1.0, 0.0)), f * f * (3.0 - 2.0 * f)); }
 void main() {
   vec3 c = texture(uDye, vUv).rgb;
-  float x = vUv.x * aspect;
   // 별: 어두운 윗하늘에만 희미하게 반짝인다
   vec2 g = floor(vUv * res / 3.0);
   float s = step(0.9965, hash(g)) * smoothstep(0.62, 0.95, vUv.y);
   float tw = 0.6 + 0.4 * sin(time * (1.5 + hash(g + 3.0) * 3.0) + hash(g) * 6.28);
   c += vec3(1.0, 0.95, 0.9) * s * tw * max(0.0, 0.55 - dot(c, vec3(0.3, 0.5, 0.2)) * 1.4);
-  // 산 능선 실루엣 (먼 능선은 흐리게, 가까운 능선은 짙게)
-  float far = 0.13 + 0.035 * noise1(x * 2.2 + 4.0) + 0.012 * noise1(x * 9.0);
-  float near = 0.075 + 0.05 * noise1(x * 1.3 + 11.0) + 0.012 * noise1(x * 7.0 + 2.0) + 0.004 * noise1(x * 40.0);
-  float px = 1.5 / res.y;
-  c = mix(c, mix(c, vec3(0.22, 0.12, 0.24), 0.72), smoothstep(far + px, far - px, vUv.y));
-  c = mix(c, vec3(0.06, 0.04, 0.08), smoothstep(near + px, near - px, vUv.y));
   // 비네팅 + 필름 그레인
   vec2 q = vUv - 0.5;
   c *= 1.0 - dot(q, q) * 0.45;
@@ -167,7 +167,7 @@ export class SkyFluid {
   private raf = 0;
   private last = 0;
   private time = 0;
-  private nextBreeze = 0;
+  private lastMove = -10;
   private pointer = { x: -1, y: -1, dx: 0, dy: 0, moved: false };
   private running = false;
   private disposed = false;
@@ -285,7 +285,7 @@ export class SkyFluid {
     const u = this.use(this.programs.initDye);
     gl.uniform2f(u.texel, 1 / dye.w, 1 / dye.h);
     gl.uniform1f(u.aspect, this.aspect);
-    gl.uniform1f(u.time, this.time);
+    gl.uniform1f(u.time, 0);
     this.blit(this.dye.read);
   }
 
@@ -339,6 +339,13 @@ export class SkyFluid {
     }
     p.x = x;
     p.y = y;
+    this.lastMove = this.time;
+  }
+
+  /** 마우스가 멈춘 뒤 0.5초부터 2.5초까지 0 -> 1 */
+  private get idle() {
+    const t = Math.min(Math.max((this.time - this.lastMove - 0.5) / 2.0, 0), 1);
+    return t * t * (3 - 2 * t);
   }
 
   private step(dt: number) {
@@ -393,7 +400,7 @@ export class SkyFluid {
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(0, this.velocity.read.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.dissipation, 0.4);
+    gl.uniform1f(u.dissipation, 0.4 + this.idle * 2.6);
     this.blit(this.velocity.write);
     this.velocity.swap();
 
@@ -403,9 +410,9 @@ export class SkyFluid {
     gl.uniform1i(u.uVelocity, this.bind(0, this.velocity.read.tex));
     gl.uniform1i(u.uSource, this.bind(1, this.dye.read.tex));
     gl.uniform1f(u.dt, dt);
-    gl.uniform1f(u.relax, 0.22);
+    gl.uniform1f(u.relax, 0.12 + this.idle * 1.1);
     gl.uniform1f(u.aspect, this.aspect);
-    gl.uniform1f(u.time, this.time);
+    gl.uniform1f(u.time, 0); // 기준 하늘은 고정: 멈추면 항상 처음 화면으로 돌아온다
     this.blit(this.dye.write);
     this.dye.swap();
   }
@@ -434,12 +441,6 @@ export class SkyFluid {
       p.dx = 0;
       p.dy = 0;
       p.moved = false;
-    }
-    // 바람: 가만히 있어도 하늘 어딘가가 천천히 소용돌이친다
-    if (this.time > this.nextBreeze) {
-      this.nextBreeze = this.time + 1.5 + Math.random() * 2.0;
-      const a = (Math.random() - 0.5) * 1.2;
-      this.push(Math.random(), 0.25 + Math.random() * 0.7, Math.cos(a) * 240, Math.sin(a) * 240, 0.7);
     }
 
     this.step(dt);
