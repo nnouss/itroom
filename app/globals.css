@@ -117,6 +117,11 @@
   .lucide {
     stroke-width: 1.5;
   }
+  /* 2px ink 포커스 링. base 레이어에 두어 utilities(outline-none)가 덮어쓸 수 있게 한다. */
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 0;
+  }
 }
 @utility type-display {
   font-size: 40px;
@@ -201,9 +206,6 @@
     scroll-behavior: auto !important;
   }
 }
-
-/* Keep the application focus treatment above third-party base styles. */
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
 
 /* 에디터 */
 .tiptap p.is-editor-empty:first-child::before {

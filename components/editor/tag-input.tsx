@@ -64,7 +64,7 @@ export function TagInput({
           onKeyDown={onKeyDown}
           onBlur={commit}
           placeholder={full ? `태그는 ${MAX_TAGS}개까지` : "태그 추가 (Enter)"}
-          className="min-w-32 flex-1 bg-transparent py-1 text-base text-ink outline-none placeholder:text-text-faint"
+          className="min-w-32 flex-1 bg-transparent py-1 text-base text-ink outline-none focus-visible:outline-none placeholder:text-text-faint"
         />
       </div>
     </div>
