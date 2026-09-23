@@ -106,7 +106,16 @@ export function PostEditor({
         try {
           const path = await uploadImage(file, userId);
           uploaded.current.add(path);
-          editor.chain().focus().setImage({ src: mediaUrl(path), alt: file.name }).run();
+          // 직전에 넣은 이미지가 선택된 상태에서 setImage를 쓰면 그 노드를 덮어쓴다.
+          // 항상 현재 선택 끝 뒤에 삽입한다.
+          editor
+            .chain()
+            .focus()
+            .insertContentAt(editor.state.selection.to, {
+              type: "image",
+              attrs: { src: mediaUrl(path), alt: file.name },
+            })
+            .run();
         } catch (err) {
           toast(err instanceof UploadError ? err.message : "이미지를 올리지 못했습니다.");
         } finally {

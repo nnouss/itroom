@@ -14,6 +14,8 @@ Authentication > Providers > Email에서 Email provider를 켜고, **Enable sign
 
 ## 3. URL과 이메일 템플릿
 
+> **무료 플랜 주의**: 기본 메일 제공자를 쓰는 무료 플랜은 템플릿을 바꿀 수 없다. 이 경우 기본 링크(`{{ .ConfirmationURL }}`)가 사이트로 돌아올 때 URL 해시에 토큰을 담아오며, 앱의 `AuthHashHandler`(루트 레이아웃)가 이를 세션으로 바꿔 `/set-password` 또는 `/reset-password`로 보낸다. 아래 템플릿 변경은 유료 플랜 또는 커스텀 SMTP 설정 후에만 적용한다. 설정 자체는 `supabase/config.toml` + `supabase config push`로 관리한다.
+
 Authentication > URL Configuration:
 
 - Site URL: `http://localhost:3000`

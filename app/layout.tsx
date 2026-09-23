@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthHashHandler } from "@/components/auth/auth-hash-handler";
 import { SITE_NAME } from "@/lib/constants";
 import "./globals.css";
 const mono = JetBrains_Mono({
@@ -23,6 +24,7 @@ export default function RootLayout({
         className={`${mono.variable} min-h-dvh bg-canvas font-sans text-ink`}
       >
         <ThemeProvider>
+          <AuthHashHandler />
           {children}
           <Toaster />
         </ThemeProvider>
