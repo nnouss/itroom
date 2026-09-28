@@ -92,11 +92,9 @@ export function AppHeader({ displayName, isOwner }: { displayName: string; isOwn
           <Tab href="/" label="홈" active={home}>
             <Home className="size-6" strokeWidth={home ? 2.4 : 1.8} />
           </Tab>
-          {isOwner && (
-            <Tab href="/write" label="새 소식 쓰기" active={writing}>
-              <Pencil className="size-[22px]" strokeWidth={writing ? 2.4 : 1.8} />
-            </Tab>
-          )}
+          <Tab href="/write" label="새 소식 쓰기" active={writing}>
+            <Pencil className="size-[22px]" strokeWidth={writing ? 2.4 : 1.8} />
+          </Tab>
         </nav>
 
         <div className="flex items-center gap-2 justify-self-end">

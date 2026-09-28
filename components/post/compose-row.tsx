@@ -3,8 +3,7 @@ import { Hash, ImagePlus, Link2 } from "lucide-react";
 import { Card } from "@/components/layout/card";
 
 /** 글 작성칸 (Facebook 구성): 입력창 모양 버튼 + 빠른 동작 줄. 모두 작성 화면으로 연결된다. */
-export function ComposeRow({ isOwner, displayName }: { isOwner: boolean; displayName: string }) {
-  if (!isOwner) return null;
+export function ComposeRow({ displayName }: { displayName: string }) {
   const quick = [
     { icon: ImagePlus, label: "사진", tint: "text-tint-photo" },
     { icon: Link2, label: "링크", tint: "text-tint-link" },

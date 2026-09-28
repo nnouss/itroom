@@ -23,3 +23,6 @@ export type Post = {
 export type FeedCursor = { createdAt: string; id: string };
 
 export type FeedPage = { posts: Post[]; nextCursor: FeedCursor | null };
+
+/** 현재 로그인한 사용자. 글 단위 권한 판단(`canManagePost`)에 쓴다. */
+export type Viewer = { id: string; isOwner: boolean };

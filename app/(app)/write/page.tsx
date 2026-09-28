@@ -1,10 +1,8 @@
-import { redirect } from "next/navigation";
 import { PostEditor } from "@/components/editor/post-editor";
 import { requireUser } from "@/lib/auth";
 
 export default async function WritePage() {
-  const { user, profile } = await requireUser();
-  if (profile.role !== "owner") redirect("/");
+  const { user } = await requireUser();
   return (
     <>
       <h1 className="sr-only">새 소식 쓰기</h1>

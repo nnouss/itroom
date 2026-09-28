@@ -20,7 +20,7 @@ export default async function PostPage({
       <TitleCard title="소식" backHref="/" />
       <PostRow
         post={post}
-        isOwner={profile.role === "owner"}
+        viewer={{ id: profile.id, isOwner: profile.role === "owner" }}
         relativeTime={formatRelative(post.createdAt)}
         afterDelete="home"
       />

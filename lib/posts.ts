@@ -29,7 +29,7 @@ function toPost(row: PostRow): Post {
   return {
     id: row.id,
     authorId: row.author_id,
-    authorName: author?.display_name?.trim() || "잇룸",
+    authorName: author?.display_name?.trim() || "회원",
     // 저장 경로 밖(SQL, REST)으로 들어온 HTML도 있을 수 있으므로 조회 시 다시 정화한다.
     contentHtml: sanitizePostHtml(row.content_html ?? ""),
     tags: row.tags ?? [],

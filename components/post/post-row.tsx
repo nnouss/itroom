@@ -20,27 +20,29 @@ import {
 import { LinkCard } from "./link-card";
 import { TagChip } from "./tag-chip";
 import { DeletePostDialog } from "./delete-post-dialog";
-import type { Post } from "@/lib/types";
+import type { Post, Viewer } from "@/lib/types";
+import { canManagePost } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { AvatarMark } from "@/components/ui/avatar-mark";
 import { Card } from "@/components/layout/card";
 
 export function PostRow({
   post,
-  isOwner,
+  viewer,
   relativeTime,
   activeTag,
   afterDelete = "refresh",
   onDeleted,
 }: {
   post: Post;
-  isOwner: boolean;
+  viewer: Viewer;
   relativeTime: string;
   activeTag?: string | null;
   afterDelete?: "refresh" | "home" | "none";
   onDeleted?: (id: string) => void;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const canManage = canManagePost(viewer, post.authorId);
   const multiple = post.images.length > 1;
   const edited = post.updatedAt !== post.createdAt;
   return (
@@ -59,7 +61,7 @@ export function PostRow({
               {edited && <span> · 수정됨</span>}
             </Link>
           </div>
-          {isOwner && (
+          {canManage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -155,7 +157,7 @@ export function PostRow({
           )}
         </div>
       </div>
-      {isOwner && (
+      {canManage && (
         <DeletePostDialog
           postId={post.id}
           open={deleteOpen}

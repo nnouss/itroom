@@ -7,6 +7,7 @@ import { firstExternalUrl, sanitizePostHtml, splitImages, textLength } from "@/l
 import { fetchLinkPreview } from "@/lib/og";
 import { normalizeTags, MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/tags";
 import { OBJECT_PATH_RE } from "@/lib/media";
+import { canManagePost } from "@/lib/permissions";
 import type { FeedCursor, FeedPage } from "@/lib/types";
 
 const MAX_HTML_LENGTH = 100_000;
@@ -28,8 +29,7 @@ export async function loadMorePosts(cursor: unknown, tag: unknown): Promise<Feed
 }
 
 export async function deletePost(id: unknown): Promise<{ error?: string }> {
-  const { profile } = await requireUser();
-  if (profile.role !== "owner") return { error: "삭제 권한이 없습니다." };
+  await requireUser();
   if (typeof id !== "string" || !UUID_RE.test(id)) return { error: "잘못된 글입니다." };
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
@@ -38,7 +38,8 @@ export async function deletePost(id: unknown): Promise<{ error?: string }> {
     .eq("id", id)
     .select("id, images");
   if (error) return { error: "삭제하지 못했습니다. 잠시 후 다시 시도해주세요." };
-  if (!deleted || deleted.length === 0) return { error: "이미 삭제된 글입니다." };
+  // 남의 글이면 RLS가 0행을 돌려준다. 이미 삭제된 글과 구분하지 않는다.
+  if (!deleted || deleted.length === 0) return { error: "삭제할 수 없는 글입니다." };
   const images = ((deleted[0].images as string[] | null) ?? []).filter((path) => OBJECT_PATH_RE.test(path));
   if (images.length > 0) await removeUnreferenced(supabase, images);
   revalidatePath("/", "layout");
@@ -60,7 +61,6 @@ export type SavePostResult = { error?: string; id?: string };
 
 export async function savePost(input: unknown): Promise<SavePostResult> {
   const { user, profile } = await requireUser();
-  if (profile.role !== "owner") return { error: "글을 쓸 권한이 없습니다." };
   if (!isRecord(input)) return { error: "잘못된 요청입니다." };
   const id = input.id;
   if (id !== undefined && (typeof id !== "string" || !UUID_RE.test(id))) return { error: "잘못된 글입니다." };
@@ -75,8 +75,6 @@ export async function savePost(input: unknown): Promise<SavePostResult> {
     return { error: "외부 이미지는 붙여 넣을 수 없습니다. 파일로 올려주세요." };
   const html = sanitizePostHtml(split.html);
   const images = split.images;
-  if (images.some((path) => !path.startsWith(`${user.id}/`)))
-    return { error: "허용되지 않은 이미지가 있습니다." };
   const tags = normalizeTags(rawTags as string[]);
   const linkUrl = firstExternalUrl(html);
   if (textLength(html) === 0 && images.length === 0 && !linkUrl)
@@ -84,15 +82,8 @@ export async function savePost(input: unknown): Promise<SavePostResult> {
 
   const supabase = await createClient();
 
-  // 이미지는 글 하나에만 속한다. 다른 글이 쓰는 경로는 거부한다.
-  if (images.length > 0) {
-    let usedElsewhere = supabase.from("posts").select("id").overlaps("images", images).limit(1);
-    if (id) usedElsewhere = usedElsewhere.neq("id", id);
-    const { data: conflict } = await usedElsewhere;
-    if (conflict && conflict.length > 0) return { error: "다른 글에 이미 쓰인 이미지가 있습니다." };
-  }
-
   type PreviousRow = {
+    author_id: string;
     images: string[] | null;
     link_url: string | null;
     link_title: string | null;
@@ -103,11 +94,26 @@ export async function savePost(input: unknown): Promise<SavePostResult> {
   if (id) {
     const { data, error } = await supabase
       .from("posts")
-      .select("images, link_url, link_title, link_description, link_image")
+      .select("author_id, images, link_url, link_title, link_description, link_image")
       .eq("id", id)
       .maybeSingle();
     if (error || !data) return { error: "수정할 글을 찾지 못했습니다." };
     previous = data as unknown as PreviousRow;
+    if (!canManagePost({ id: user.id, isOwner: profile.role === "owner" }, previous.author_id))
+      return { error: "이 글을 수정할 권한이 없습니다." };
+  }
+
+  // 새 이미지는 내 폴더에서만 온다. owner가 남의 글을 고칠 때 그 글에 원래 있던 이미지는 유지한다.
+  const kept = new Set(previous?.images ?? []);
+  if (images.some((path) => !path.startsWith(`${user.id}/`) && !kept.has(path)))
+    return { error: "허용되지 않은 이미지가 있습니다." };
+
+  // 이미지는 글 하나에만 속한다. 다른 글이 쓰는 경로는 거부한다.
+  if (images.length > 0) {
+    let usedElsewhere = supabase.from("posts").select("id").overlaps("images", images).limit(1);
+    if (id) usedElsewhere = usedElsewhere.neq("id", id);
+    const { data: conflict } = await usedElsewhere;
+    if (conflict && conflict.length > 0) return { error: "다른 글에 이미 쓰인 이미지가 있습니다." };
   }
 
   // 링크가 바뀌었을 때만 OG를 다시 가져온다.
@@ -146,8 +152,8 @@ export async function savePost(input: unknown): Promise<SavePostResult> {
 
 /** 에디터에서 올렸지만 글에 쓰지 않은 이미지를 지운다 (취소, 노드 삭제 후 저장). */
 export async function discardUploads(paths: unknown): Promise<void> {
-  const { user, profile } = await requireUser();
-  if (profile.role !== "owner" || !Array.isArray(paths)) return;
+  const { user } = await requireUser();
+  if (!Array.isArray(paths)) return;
   const own = paths.filter(
     (path): path is string =>
       typeof path === "string" && OBJECT_PATH_RE.test(path) && path.startsWith(`${user.id}/`),

@@ -4,18 +4,18 @@ import { PostRow } from "./post-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadMorePosts } from "@/app/(app)/posts/actions";
 import { formatRelative } from "@/lib/format";
-import type { FeedCursor, Post } from "@/lib/types";
+import type { FeedCursor, Post, Viewer } from "@/lib/types";
 
 export function FeedList({
   initialPosts,
   initialCursor,
-  isOwner,
+  viewer,
   tag,
   serverNow,
 }: {
   initialPosts: Post[];
   initialCursor: FeedCursor | null;
-  isOwner: boolean;
+  viewer: Viewer;
   tag: string | null;
   /** 서버 렌더 시각. 첫 페이지의 상대 시각을 서버/클라이언트가 같은 기준으로 계산한다. */
   serverNow: string;
@@ -82,7 +82,7 @@ export function FeedList({
         >
           <PostRow
             post={post}
-            isOwner={isOwner}
+            viewer={viewer}
             relativeTime={formatRelative(post.createdAt, now)}
             activeTag={tag}
             afterDelete="none"

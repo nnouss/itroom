@@ -57,6 +57,30 @@ SQL Editor에서 [`supabase/migrations/0001_init.sql`](../supabase/migrations/00
 - `post-images` 버킷은 10MB, jpg/png/gif/webp만 받고, 업로더 본인 폴더(`<user id>/...`)에만 올릴 수 있습니다.
 - `public` 스키마에 새로 만드는 테이블·함수는 기본으로 anon/authenticated에 열리지 않습니다. 새 테이블은 RLS를 켜고 필요한 권한을 직접 `grant`하세요.
 
+[`0005_member_posting.sql`](../supabase/migrations/0005_member_posting.sql)은 모든 회원에게 글 작성 권한을 줍니다 (`supabase db push`).
+
+| 정책 | 대상 | 규칙 |
+| --- | --- | --- |
+| `posts_insert_own` | `posts` insert | `author_id = auth.uid()` (본인 명의로만 작성) |
+| `posts_update_own_or_owner` | `posts` update | 본인 글 또는 `is_owner()` |
+| `posts_delete_own_or_owner` | `posts` delete | 본인 글 또는 `is_owner()` |
+| `post_images_insert_own` | `post-images` insert | 본인 폴더만 (owner 포함) |
+| `post_images_update_own_or_owner` | `post-images` update | 본인 폴더 또는 `is_owner()` |
+| `post_images_delete_own_or_owner` | `post-images` delete | 본인 폴더 또는 `is_owner()` |
+
+- `post_images_select`와 0002의 열 단위 grant는 그대로입니다. 회원은 `author_id`(글)나 `role`(프로필)을 바꿀 수 없습니다.
+- 앱은 같은 규칙을 `lib/permissions.ts`의 `canManagePost`로 서버 액션·페이지 가드·메뉴 노출에 적용합니다. 최종 방어선은 RLS입니다.
+
+### 마이그레이션 목록
+
+| 파일 | 내용 |
+| --- | --- |
+| `0001_init.sql` | 테이블, 트리거, RLS, private Storage 버킷과 정책 |
+| `0002_security_hardening.sql` | `posts` 열 단위 grant, 표시 이름 제한, 함수 실행 권한, 버킷 크기·형식 제한 |
+| `0003_default_display_name_from_email.sql` | 초대 시 기본 표시 이름을 이메일 앞부분으로 |
+| `0004_revoke_public_function_default.sql` | 새 함수의 PUBLIC 실행 기본값 회수 |
+| `0005_member_posting.sql` | 모든 회원의 글 작성, 본인 글·폴더 수정/삭제, owner는 전체 |
+
 ## 5. 본인 초대 및 최초 비밀번호 설정
 
 **메일 링크를 열기 전에 7번의 `.env.local` 설정을 먼저 마치고 `pnpm dev`를 실행하세요.** 환경 변수 없이 초대 링크를 열면 인증할 수 없습니다.
@@ -71,7 +95,7 @@ Authentication > Users에서 본인 User UID를 복사하고 SQL Editor에서 �
 update public.profiles set role = 'owner' where id = '<본인의 User UID>';
 ```
 
-피드를 새로고침하면 프로필 메뉴에 `소유자`, 피드에 작성 진입과 게시물 메뉴가 나타납니다. 소유자는 한 명만 지정합니다.
+피드를 새로고침하면 프로필 메뉴에 `소유자`가 표시되고, 다른 회원의 글에도 수정·삭제 메뉴가 나타납니다. 글 작성 진입은 모든 회원에게 보입니다. 소유자는 한 명만 지정합니다.
 
 ## 7. 로컬 환경 변수
 
@@ -93,8 +117,66 @@ Authentication > Users > Invite user에 회원 이메일을 입력합니다. 회
 - 로그인/로그아웃: 정상 로그인, 틀린 비밀번호, 새로고침 시 세션 유지, 로그아웃 뒤 피드 접근 차단을 확인합니다.
 - 초대: 링크에서 비밀번호 설정 후 피드 진입, 재사용/만료 링크에서 오류 화면을 확인합니다.
 - 재설정: 로그인 화면 → 비밀번호 찾기 → 이메일 → 새 비밀번호 저장 → 새 비밀번호 로그인까지 확인합니다. 존재하지 않는 이메일에도 같은 발송 안내가 표시됩니다.
-- 권한: owner에게만 작성/수정 메뉴가 보이는지, member에게는 숨겨지는지 확인합니다. 피드 내용은 아직 목 데이터입니다.
-- DB/Storage: anon 조회 거부, member 조회 허용 및 글/이미지 쓰기 거부, member의 자기 역할 변경 거부, owner 쓰기 허용을 각 사용자 세션으로 확인합니다.
+- 권한(UI): 모든 회원에게 글 작성칸과 글쓰기 탭이 보이는지, member는 본인 글에만 수정·삭제 메뉴가 보이는지, owner는 모든 글에 메뉴가 보이는지 확인합니다. member가 남의 글 `/posts/<id>/edit`을 직접 열면 글 상세로 돌아가야 합니다.
+- DB/Storage: anon 조회 거부, member의 본인 글 작성·수정·삭제 허용, 남의 글 수정·삭제 거부(0행), 남의 명의 작성 거부, 남의 폴더 업로드 거부, 자기 역할·글 작성자 변경 거부, owner의 모든 글 수정·삭제 허용을 각 사용자 세션으로 확인합니다. SQL 예시는 아래와 같습니다.
+
+### RLS 검증 SQL
+
+SQL Editor(또는 `psql`)에서 블록 하나씩 실행합니다. 모든 블록은 `rollback`으로 끝나 데이터가 남지 않습니다. `<member uuid>`, `<other uuid>`(다른 회원), `<owner uuid>`를 실제 User UID로 바꿉니다. 정책 위반은 오류로 트랜잭션을 멈추므로, 오류를 기대하는 시도는 블록마다 하나씩만 둡니다.
+
+```sql
+-- A. member: 본인 글 작성·수정·삭제는 성공, 남의 글 수정·삭제는 0행
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<member uuid>","role":"authenticated"}';
+insert into public.posts (author_id, content_html)
+  values ('<member uuid>', '<p>rls test</p>') returning id;                             -- 기대: 1행
+update public.posts set content_html = '<p>rls test edited</p>'
+  where content_html = '<p>rls test</p>' returning id;                                  -- 기대: 1행
+update public.posts set content_html = '<p>x</p>'
+  where author_id <> '<member uuid>' returning id;                                      -- 기대: 0행
+delete from public.posts where author_id <> '<member uuid>' returning id;               -- 기대: 0행
+delete from public.posts where content_html = '<p>rls test edited</p>' returning id;    -- 기대: 1행
+rollback;
+
+-- B. member: 남의 명의로 작성 → 오류 (new row violates row-level security policy)
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<member uuid>","role":"authenticated"}';
+insert into public.posts (author_id, content_html) values ('<other uuid>', '<p>x</p>');
+rollback;
+
+-- C. member: 작성자 변경 → 오류 (permission denied for table posts, 열 단위 grant)
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<member uuid>","role":"authenticated"}';
+update public.posts set author_id = '<member uuid>' where author_id = '<other uuid>';
+rollback;
+
+-- D. member: 자기 역할 변경 → 오류 (permission denied for table profiles)
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<member uuid>","role":"authenticated"}';
+update public.profiles set role = 'owner' where id = '<member uuid>';
+rollback;
+
+-- E. owner: 남의 글 수정·삭제 → 해당 행 수만큼 성공
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<owner uuid>","role":"authenticated"}';
+update public.posts set content_html = content_html where author_id = '<member uuid>' returning id;  -- 기대: member 글 수
+delete from public.posts where author_id = '<member uuid>' returning id;                             -- 기대: member 글 수
+rollback;
+
+-- F. member: 남의 폴더에 업로드 → 오류 (Storage 정책만 확인. 본인 폴더로 바꾸면 성공)
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<member uuid>","role":"authenticated"}';
+insert into storage.objects (bucket_id, name) values ('post-images', '<other uuid>/rls-test.jpg');
+rollback;
+```
+
+Storage 삭제는 Supabase가 `storage.objects` 직접 delete를 막을 수 있으므로 앱(Storage API)으로 확인합니다: member가 본인 글을 지우면 이미지도 지워지고, owner가 member 글을 지우면 member 폴더의 이미지도 지워져야 합니다.
 
 키가 없는 작업 환경에서는 실제 메일 발송·인증·원격 RLS 적용은 검증하지 않았습니다.
 

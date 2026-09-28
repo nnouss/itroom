@@ -12,7 +12,6 @@ export default async function FeedPage({
   searchParams: Promise<{ tag?: string | string[] }>;
 }) {
   const { profile } = await requireUser();
-  const isOwner = profile.role === "owner";
   const raw = (await searchParams).tag;
   const tag = (Array.isArray(raw) ? raw[0] : raw)?.trim().slice(0, 40) || null;
   const page = await fetchFeedPage({ tag });
@@ -33,7 +32,7 @@ export default async function FeedPage({
           </Link>
         </Card>
       ) : (
-        <ComposeRow isOwner={isOwner} displayName={profile.displayName} />
+        <ComposeRow displayName={profile.displayName} />
       )}
       {page.posts.length === 0 && (
         <Card className="flex flex-col items-center px-6 py-20 text-center">
@@ -44,11 +43,7 @@ export default async function FeedPage({
             {tag ? "이 태그의 소식이 없습니다" : "아직 소식이 없습니다"}
           </p>
           <p className="type-body-sm mt-2 text-text-muted">
-            {tag
-              ? "다른 태그를 눌러보거나 전체 피드로 돌아가세요."
-              : isOwner
-                ? "위에서 첫 소식을 남겨보세요."
-                : "첫 소식이 올라오면 여기에 보입니다."}
+            {tag ? "다른 태그를 눌러보거나 전체 피드로 돌아가세요." : "위에서 첫 소식을 남겨보세요."}
           </p>
         </Card>
       )}
@@ -56,7 +51,7 @@ export default async function FeedPage({
         key={tag ?? ""}
         initialPosts={page.posts}
         initialCursor={page.nextCursor}
-        isOwner={isOwner}
+        viewer={{ id: profile.id, isOwner: profile.role === "owner" }}
         tag={tag}
         serverNow={new Date().toISOString()}
       />
