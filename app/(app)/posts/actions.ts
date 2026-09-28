@@ -14,8 +14,8 @@ const MAX_HTML_LENGTH = 100_000;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-export async function loadMorePosts(cursor: unknown, tag: unknown): Promise<FeedPage> {
-  await requireUser();
+export async function loadMorePosts(cursor: unknown, filter: unknown): Promise<FeedPage> {
+  const { user } = await requireUser();
   if (
     !isRecord(cursor) ||
     typeof cursor.id !== "string" ||
@@ -24,8 +24,11 @@ export async function loadMorePosts(cursor: unknown, tag: unknown): Promise<Feed
     !TIMESTAMP_RE.test(cursor.createdAt)
   )
     return { posts: [], nextCursor: null };
+  const tag = isRecord(filter) ? filter.tag : undefined;
   const safeTag = typeof tag === "string" ? tag.trim().slice(0, 40) || null : null;
-  return fetchFeedPage({ cursor: cursor as FeedCursor, tag: safeTag });
+  // 내 글 필터의 작성자는 클라이언트 값이 아니라 세션 사용자로 정한다.
+  const mine = isRecord(filter) && filter.mine === true;
+  return fetchFeedPage({ cursor: cursor as FeedCursor, tag: safeTag, authorId: mine ? user.id : null });
 }
 
 export async function deletePost(id: unknown): Promise<{ error?: string }> {

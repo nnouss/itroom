@@ -4,9 +4,6 @@
 @custom-variant dark (&:is(.dark *));
 :root {
   --page: #f0f2f5;
-  --tint-photo: #2f9e62;
-  --tint-link: #2f6fe0;
-  --tint-tag: #db6a3a;
   --canvas: #ffffff;
   --canvas-soft: #f2f2f2;
   --field: #f0f0f0;
@@ -24,9 +21,6 @@
 }
 .dark {
   --page: #0b0b0c;
-  --tint-photo: #4cc486;
-  --tint-link: #5b95f5;
-  --tint-tag: #f08a5d;
   --canvas: #161616;
   --canvas-soft: #232323;
   --field: #262626;
@@ -64,9 +58,6 @@
 }
 @theme inline {
   --color-page: var(--page);
-  --color-tint-photo: var(--tint-photo);
-  --color-tint-link: var(--tint-link);
-  --color-tint-tag: var(--tint-tag);
   --color-canvas: var(--canvas);
   --color-canvas-soft: var(--canvas-soft);
   --color-field: var(--field);

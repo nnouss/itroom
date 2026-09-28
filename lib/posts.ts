@@ -58,10 +58,13 @@ function toPost(row: PostRow): Post {
 export async function fetchFeedPage({
   cursor,
   tag,
+  authorId,
   limit = FEED_PAGE_SIZE,
 }: {
   cursor?: FeedCursor | null;
   tag?: string | null;
+  /** 이 회원의 글만. 호출하는 쪽이 서버 세션에서 꺼낸 ID만 넘긴다. */
+  authorId?: string | null;
   limit?: number;
 }): Promise<FeedPage> {
   const supabase = await createClient();
@@ -72,6 +75,7 @@ export async function fetchFeedPage({
     .order("id", { ascending: false })
     .limit(limit + 1);
   if (tag) query = query.contains("tags", [tag]);
+  if (authorId) query = query.eq("author_id", authorId);
   if (cursor) {
     // (created_at, id) < (cursor.createdAt, cursor.id) 튜플 비교
     query = query.or(

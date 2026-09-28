@@ -22,7 +22,7 @@
 
 ```
 app/(auth)/        로그인, 비밀번호 설정·재설정, auth 콜백. actions.ts에 서버 액션
-app/(app)/         보호 영역. 피드(page.tsx), 글쓰기(write), 글 상세·수정(posts/[id]), posts/actions.ts
+app/(app)/         보호 영역. 피드(page.tsx), 내 소식(me), 글쓰기(write), 글 상세·수정(posts/[id]), posts/actions.ts
 app/og/[id]        글별 OG 이미지 / app/media/[...path]  Storage 이미지 프록시
 components/        ui(shadcn), post(피드·행·링크카드), editor(Tiptap·툴바·태그), auth, layout
 lib/               auth, permissions(canManagePost), posts, tags, sanitize, og, upload, media, env, constants

@@ -6,19 +6,25 @@ import { loadMorePosts } from "@/app/(app)/posts/actions";
 import { formatRelative } from "@/lib/format";
 import type { FeedCursor, Post, Viewer } from "@/lib/types";
 
+/** 목록 조건. mine이면 서버가 세션 사용자의 글만 돌려준다. */
+export type FeedFilter = { tag: string | null; mine: boolean };
+
 export function FeedList({
   initialPosts,
   initialCursor,
   viewer,
-  tag,
+  filter,
   serverNow,
+  endLabel = "마지막 소식입니다.",
 }: {
   initialPosts: Post[];
   initialCursor: FeedCursor | null;
   viewer: Viewer;
-  tag: string | null;
+  filter: FeedFilter;
   /** 서버 렌더 시각. 첫 페이지의 상대 시각을 서버/클라이언트가 같은 기준으로 계산한다. */
   serverNow: string;
+  /** 끝까지 불러왔을 때 맨 아래 안내문 */
+  endLabel?: string;
 }) {
   const [posts, setPosts] = useState(initialPosts);
   const [cursor, setCursor] = useState(initialCursor);
@@ -28,6 +34,7 @@ export function FeedList({
   const inFlight = useRef(false);
   const generation = useRef(0);
   const now = new Date(serverNow);
+  const { tag, mine } = filter;
 
   const loadMore = useCallback(
     (manual = false) => {
@@ -37,7 +44,7 @@ export function FeedList({
       const gen = generation.current;
       startTransition(async () => {
         try {
-          const page = await loadMorePosts(cursor, tag);
+          const page = await loadMorePosts(cursor, { tag, mine });
           if (gen !== generation.current) return; // 오래된 응답은 버린다.
           setPosts((current) => {
             const seen = new Set(current.map((post) => post.id));
@@ -52,7 +59,7 @@ export function FeedList({
         }
       });
     },
-    [cursor, error, tag],
+    [cursor, error, tag, mine],
   );
 
   useEffect(() => {
@@ -122,7 +129,7 @@ export function FeedList({
         </div>
       ) : (
         posts.length > 0 && (
-          <p className="type-caption py-8 text-center text-text-faint">마지막 소식입니다.</p>
+          <p className="type-caption py-8 text-center text-text-faint">{endLabel}</p>
         )
       )}
     </div>
