@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Newspaper, X } from "lucide-react";
+import { ComposeRow } from "@/components/post/compose-row";
 import { FeedList } from "@/components/post/feed-list";
 import { Card } from "@/components/layout/card";
 import { requireUser } from "@/lib/auth";
@@ -17,7 +18,7 @@ export default async function FeedPage({
   return (
     <>
       <h1 className="sr-only">{tag ? `#${tag} 소식` : "잇룸 소식 피드"}</h1>
-      {tag && (
+      {tag ? (
         <Card className="flex items-center gap-3 px-4 py-3">
           <span className="type-title min-w-0 truncate text-[17px]">#{tag}</span>
           <span className="type-body-sm shrink-0 text-text-muted">태그로 보는 중</span>
@@ -30,6 +31,8 @@ export default async function FeedPage({
             필터 해제
           </Link>
         </Card>
+      ) : (
+        <ComposeRow displayName={profile.displayName} />
       )}
       {page.posts.length === 0 && (
         <Card className="flex flex-col items-center px-6 py-20 text-center">
@@ -40,7 +43,7 @@ export default async function FeedPage({
             {tag ? "이 태그의 소식이 없습니다" : "아직 소식이 없습니다"}
           </p>
           <p className="type-body-sm mt-2 text-text-muted">
-            {tag ? "다른 태그를 눌러보거나 전체 피드로 돌아가세요." : "위 쓰기 버튼으로 첫 소식을 남겨보세요."}
+            {tag ? "다른 태그를 눌러보거나 전체 피드로 돌아가세요." : "위에서 첫 소식을 남겨보세요."}
           </p>
         </Card>
       )}
