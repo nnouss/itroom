@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { FileText, LogOut, Moon } from "lucide-react";
+import { FileText, LogOut, Moon, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,10 +27,12 @@ export function ProfileMenu({
 }) {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme === "dark";
-  const mine = usePathname() === "/me";
+  const path = usePathname();
+  const mine = path === "/me";
+  const account = path === "/account";
   // 에디터에서 나갈 때는 헤더 탭과 같이 이탈 확인을 거친다.
-  const guardLeave = (event: React.MouseEvent) => {
-    if (!mine && !confirmLeave()) event.preventDefault();
+  const guardLeave = (active: boolean) => (event: React.MouseEvent) => {
+    if (!active && !confirmLeave()) event.preventDefault();
   };
   return (
     <DropdownMenu>
@@ -51,9 +53,15 @@ export function ProfileMenu({
           </span>
         </DropdownMenuLabel>
         <DropdownMenuItem asChild className={cn("min-h-11", mine && "font-semibold text-ink")}>
-          <Link href="/me" aria-current={mine ? "page" : undefined} onClick={guardLeave}>
+          <Link href="/me" aria-current={mine ? "page" : undefined} onClick={guardLeave(mine)}>
             <FileText className={cn(mine && "text-ink")} />
             내 소식
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className={cn("min-h-11", account && "font-semibold text-ink")}>
+          <Link href="/account" aria-current={account ? "page" : undefined} onClick={guardLeave(account)}>
+            <UserRound className={cn(account && "text-ink")} />
+            내 정보
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

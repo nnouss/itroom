@@ -19,6 +19,7 @@
   --text-faint: #adadad;
   --accent: #0066ff;
   --destructive: #d92d20;
+  --success: #079455;
   --overlay: rgba(115, 115, 115, 0.56);
   --scrim: rgba(0, 0, 0, 0.5);
 }
@@ -39,6 +40,7 @@
   --text-faint: #6b6b6b;
   --accent: #4d8dff;
   --destructive: #f97066;
+  --success: #47cd89;
   --overlay: rgba(115, 115, 115, 0.56);
   --scrim: rgba(0, 0, 0, 0.7);
 }
@@ -79,6 +81,7 @@
   --color-text-faint: var(--text-faint);
   --color-accent: var(--accent);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --color-overlay: var(--overlay);
   --color-scrim: var(--scrim);
   --color-background: var(--background);

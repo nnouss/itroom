@@ -44,6 +44,7 @@ function Tab({
 function subPage(path: string): { title: string; back: string } | null {
   if (path === "/write") return { title: "새 소식", back: "/" };
   if (path === "/me") return { title: "내 소식", back: "/" };
+  if (path === "/account") return { title: "내 정보", back: "/" };
   const edit = path.match(/^\/posts\/([^/]+)\/edit$/);
   if (edit) return { title: "소식 수정", back: `/posts/${edit[1]}` };
   if (/^\/posts\/[^/]+$/.test(path)) return { title: "소식", back: "/" };
@@ -54,8 +55,8 @@ function subPage(path: string): { title: string; back: string } | null {
  * 상단 고정 헤더. 안쪽 폭은 피드 카드와 같다.
  * - 640px 이상: 워드마크 | 홈·쓰기 탭 | 테마·프로필
  * - 640px 미만: 워드마크 | 홈·쓰기 탭(좁은 폭) | 프로필(테마 토글은 메뉴 안)
- *   하위 화면(쓰기, 글 상세·수정, 내 소식)은 ← + 제목 | (탭 없음) | 프로필
- * 내 소식은 탭이 아니라 프로필 메뉴에서 들어간다(모든 폭 같은 자리).
+ *   하위 화면(쓰기, 글 상세·수정, 내 소식, 내 정보)은 ← + 제목 | (탭 없음) | 프로필
+ * 내 소식·내 정보는 탭이 아니라 프로필 메뉴에서 들어간다(모든 폭 같은 자리).
  */
 export function AppHeader({ displayName, isOwner }: { displayName: string; isOwner: boolean }) {
   const path = usePathname();
