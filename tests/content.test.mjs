@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { splitImages, sanitizePostHtml, firstExternalUrl, textLength, joinImages } from "../lib/sanitize.ts";
+import { collectImages, reconcileImages, toContentBlocks, sanitizePostHtml, firstExternalUrl, textLength } from "../lib/sanitize.ts";
 import { normalizeTags } from "../lib/tags.ts";
 import { pathFromMediaUrl, mediaUrl } from "../lib/media.ts";
 
@@ -15,13 +15,34 @@ test("mediaUrl round-trips through pathFromMediaUrl and rejects foreign paths", 
   assert.equal(pathFromMediaUrl(`/media/${uid}/${img}.svg`), null);
 });
 
-test("splitImages pulls /media images out of the html and ignores external images", () => {
+const other = `${uid}/33333333-3333-4333-8333-333333333333.png`;
+
+test("collectImages lists /media images and counts external ones without touching the html", () => {
   const html = `<p>hi</p><img src="${mediaUrl(path)}" alt="x"><p>bye</p><img src="https://x.test/a.png">`;
-  const result = splitImages(html);
-  assert.deepEqual(result.images, [path]);
-  assert.equal(result.rejected, 1);
-  assert.equal(result.html, "<p>hi</p><p>bye</p>");
-  assert.equal(joinImages("<p>a</p>", [path]), `<p>a</p><img src="${mediaUrl(path)}" alt="첨부 이미지">`);
+  assert.deepEqual(collectImages(html), { images: [path], rejected: 1 });
+});
+
+test("sanitizePostHtml keeps /media images in place and drops foreign or unsafe ones", () => {
+  const html =
+    `<p>a</p><img src="${mediaUrl(path)}" alt="x" onerror="evil()" title="t">` +
+    `<img src="https://x.test/a.png"><img src="javascript:alert(1)"><p>b</p>`;
+  assert.equal(sanitizePostHtml(html), `<p>a</p><img src="${mediaUrl(path)}" alt="x" /><p>b</p>`);
+});
+
+test("reconcileImages drops images missing from the column and appends legacy ones", () => {
+  const html = `<p>a</p><img src="${mediaUrl(other)}"><p>b</p>`;
+  assert.equal(reconcileImages(html, [path]), `<p>a</p><p>b</p><img src="${mediaUrl(path)}" alt="첨부 이미지">`);
+  assert.equal(reconcileImages(html, [other]), html);
+});
+
+test("toContentBlocks splits top-level images into groups between text", () => {
+  const html = `<p>a</p><img src="${mediaUrl(path)}"><img src="${mediaUrl(other)}"><p>b</p><img src="${mediaUrl(path)}">`;
+  assert.deepEqual(toContentBlocks(html), [
+    { type: "html", html: "<p>a</p>" },
+    { type: "images", paths: [path, other] },
+    { type: "html", html: "<p>b</p>" },
+    { type: "images", paths: [path] },
+  ]);
 });
 
 test("sanitizePostHtml keeps editor markup, strips scripts, forces safe link attrs, trims trailing blanks", () => {

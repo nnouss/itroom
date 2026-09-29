@@ -1,9 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { PostEditor } from "@/components/editor/post-editor";
 import { requireUser } from "@/lib/auth";
-import { fetchPost, UUID_RE } from "@/lib/posts";
+import { editorHtml, fetchPost, UUID_RE } from "@/lib/posts";
 import { canManagePost } from "@/lib/permissions";
-import { joinImages } from "@/lib/sanitize";
 
 export default async function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,7 +19,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
         mode="edit"
         postId={post.id}
         userId={user.id}
-        initialHtml={joinImages(post.contentHtml, post.images.map((image) => image.path))}
+        initialHtml={editorHtml(post)}
         initialTags={post.tags}
       />
     </>

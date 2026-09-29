@@ -20,7 +20,7 @@ import {
 import { LinkCard } from "./link-card";
 import { TagChip } from "./tag-chip";
 import { DeletePostDialog } from "./delete-post-dialog";
-import type { Post, Viewer } from "@/lib/types";
+import type { Post, PostImage, Viewer } from "@/lib/types";
 import { canManagePost } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { AvatarMark } from "@/components/ui/avatar-mark";
@@ -43,7 +43,6 @@ export function PostRow({
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const canManage = canManagePost(viewer, post.authorId);
-  const multiple = post.images.length > 1;
   const edited = post.updatedAt !== post.createdAt;
   return (
     <Card className="min-w-0 px-4 pt-3 pb-4">
@@ -92,60 +91,16 @@ export function PostRow({
           )}
         </div>
         <div className="space-y-3">
-          {post.contentHtml && (
-            <div
-              className="post-content type-body"
-              dangerouslySetInnerHTML={{ __html: post.contentHtml }}
-            />
-          )}
-          {post.images.length > 0 && (
-            <div
-              className={cn(
-                "min-w-0",
-                multiple && "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2",
-              )}
-              aria-label="게시물 이미지"
-            >
-              {post.images.map((image) => (
-                <Dialog key={image.path}>
-                  <DialogTrigger asChild>
-                    <button
-                      aria-label={`${image.alt} 원본 보기`}
-                      className={cn(
-                        "block overflow-hidden rounded-2xl bg-canvas-soft",
-                        multiple ? "h-60 w-[85%] shrink-0 snap-start" : "w-full",
-                      )}
-                    >
-                      <Image
-                        unoptimized
-                        src={image.src}
-                        alt={image.alt}
-                        width={1200}
-                        height={800}
-                        className={cn(
-                          "w-full object-cover",
-                          multiple ? "h-60" : "h-auto max-h-[520px]",
-                        )}
-                      />
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-4xl">
-                    <DialogTitle className="sr-only">{image.alt}</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      게시물 이미지 원본
-                    </DialogDescription>
-                    <Image
-                      unoptimized
-                      src={image.src}
-                      alt={image.alt}
-                      width={1200}
-                      height={800}
-                      className="max-h-[80dvh] w-full rounded-2xl object-contain"
-                    />
-                  </DialogContent>
-                </Dialog>
-              ))}
-            </div>
+          {post.blocks.map((block, index) =>
+            block.type === "html" ? (
+              <div
+                key={index}
+                className="post-content type-body"
+                dangerouslySetInnerHTML={{ __html: block.html }}
+              />
+            ) : (
+              <PostImages key={index} images={block.images} />
+            ),
           )}
           {post.link && <LinkCard link={post.link} />}
           {post.tags.length > 0 && (
@@ -168,5 +123,59 @@ export function PostRow({
       )}
     </article>
     </Card>
+  );
+}
+
+/** 이미지 묶음. 한 장이면 전체 폭, 여러 장이면 가로로 넘겨 본다. 누르면 원본을 연다. */
+function PostImages({ images }: { images: PostImage[] }) {
+  const multiple = images.length > 1;
+  return (
+    <div
+      className={cn(
+        "min-w-0",
+        multiple && "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2",
+      )}
+      aria-label="게시물 이미지"
+    >
+      {images.map((image, index) => (
+        <Dialog key={`${image.path}-${index}`}>
+          <DialogTrigger asChild>
+            <button
+              aria-label={`${image.alt} 원본 보기`}
+              className={cn(
+                "block overflow-hidden rounded-2xl bg-canvas-soft",
+                multiple ? "h-60 w-[85%] shrink-0 snap-start" : "w-full",
+              )}
+            >
+              <Image
+                unoptimized
+                src={image.src}
+                alt={image.alt}
+                width={1200}
+                height={800}
+                className={cn(
+                  "w-full object-cover",
+                  multiple ? "h-60" : "h-auto max-h-[520px]",
+                )}
+              />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-4xl">
+            <DialogTitle className="sr-only">{image.alt}</DialogTitle>
+            <DialogDescription className="sr-only">
+              게시물 이미지 원본
+            </DialogDescription>
+            <Image
+              unoptimized
+              src={image.src}
+              alt={image.alt}
+              width={1200}
+              height={800}
+              className="max-h-[80dvh] w-full rounded-2xl object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      ))}
+    </div>
   );
 }

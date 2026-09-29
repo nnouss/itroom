@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { fetchFeedPage, TIMESTAMP_RE, UUID_RE } from "@/lib/posts";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { firstExternalUrl, sanitizePostHtml, splitImages, textLength } from "@/lib/sanitize";
+import { firstExternalUrl, sanitizePostHtml, collectImages, textLength } from "@/lib/sanitize";
 import { fetchLinkPreview } from "@/lib/og";
 import { normalizeTags, MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/tags";
 import { OBJECT_PATH_RE } from "@/lib/media";
@@ -73,11 +73,11 @@ export async function savePost(input: unknown): Promise<SavePostResult> {
   if (rawTags.length > MAX_TAGS * 2 || rawTags.some((t) => typeof t !== "string" || t.length > MAX_TAG_LENGTH * 4))
     return { error: "태그 형식이 올바르지 않습니다." };
 
-  const split = splitImages(input.contentHtml);
-  if (split.rejected > 0)
+  // 이미지는 본문 제자리에 남기고, 경로 목록은 권한 확인과 정리를 위해 images 컬럼에 따로 둔다.
+  const { images, rejected } = collectImages(input.contentHtml);
+  if (rejected > 0)
     return { error: "외부 이미지는 붙여 넣을 수 없습니다. 파일로 올려주세요." };
-  const html = sanitizePostHtml(split.html);
-  const images = split.images;
+  const html = sanitizePostHtml(input.contentHtml);
   const tags = normalizeTags(rawTags as string[]);
   const linkUrl = firstExternalUrl(html);
   if (textLength(html) === 0 && images.length === 0 && !linkUrl)

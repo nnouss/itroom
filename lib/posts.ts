@@ -1,9 +1,9 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { FEED_PAGE_SIZE } from "@/lib/constants";
-import type { FeedCursor, FeedPage, Post } from "@/lib/types";
+import type { FeedCursor, FeedPage, Post, PostBlock } from "@/lib/types";
 import { mediaUrl } from "@/lib/media";
-import { safeHttpUrl, sanitizePostHtml } from "@/lib/sanitize";
+import { reconcileImages, safeHttpUrl, sanitizePostHtml, toContentBlocks } from "@/lib/sanitize";
 
 const POST_COLUMNS =
   "id, author_id, content_html, tags, images, link_url, link_title, link_description, link_image, created_at, updated_at, author:profiles(display_name)";
@@ -23,6 +23,29 @@ type PostRow = {
   author: { display_name: string | null } | { display_name: string | null }[] | null;
 };
 
+function toBlocks(html: string): PostBlock[] {
+  let count = 0;
+  return toContentBlocks(html).map((block) =>
+    block.type === "html"
+      ? block
+      : {
+          type: "images",
+          images: block.paths.map((path) => ({ path, src: mediaUrl(path), alt: `첨부 이미지 ${++count}` })),
+        },
+  );
+}
+
+/** 수정 화면 에디터에 넣을 HTML. 이미지는 본문 제자리에 있다. */
+export function editorHtml(post: Post): string {
+  return post.blocks
+    .map((block) =>
+      block.type === "html"
+        ? block.html
+        : block.images.map((image) => `<img src="${image.src}" alt="첨부 이미지">`).join(""),
+    )
+    .join("");
+}
+
 function toPost(row: PostRow): Post {
   const author = Array.isArray(row.author) ? row.author[0] : row.author;
   const linkUrl = safeHttpUrl(row.link_url);
@@ -31,13 +54,9 @@ function toPost(row: PostRow): Post {
     authorId: row.author_id,
     authorName: author?.display_name?.trim() || "회원",
     // 저장 경로 밖(SQL, REST)으로 들어온 HTML도 있을 수 있으므로 조회 시 다시 정화한다.
-    contentHtml: sanitizePostHtml(row.content_html ?? ""),
+    // 이미지는 images 컬럼에 있는 것만 보여 주고, 본문에 없던 예전 글의 이미지는 끝에 붙인다.
+    blocks: toBlocks(reconcileImages(sanitizePostHtml(row.content_html ?? ""), row.images ?? [])),
     tags: row.tags ?? [],
-    images: (row.images ?? []).map((path, index) => ({
-      path,
-      src: mediaUrl(path),
-      alt: `첨부 이미지 ${index + 1}`,
-    })),
     link:
       linkUrl && row.link_title
         ? {

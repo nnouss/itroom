@@ -7,13 +7,17 @@ export type LinkPreview = {
 
 export type PostImage = { src: string; alt: string; path: string };
 
+/** 본문 조각. 이미지는 쓴 자리에 놓이고, 연속한 이미지는 한 묶음으로 보인다. */
+export type PostBlock =
+  | { type: "html"; html: string }
+  | { type: "images"; images: PostImage[] };
+
 export type Post = {
   id: string;
   authorId: string;
   authorName: string;
-  contentHtml: string;
+  blocks: PostBlock[];
   tags: string[];
-  images: PostImage[];
   link: LinkPreview | null;
   /** DB가 돌려준 원본 문자열. 커서 비교에 그대로 쓰므로 Date로 바꾸지 않는다. */
   createdAt: string;

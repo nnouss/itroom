@@ -5,6 +5,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TiptapImage from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TextSelection } from "@tiptap/pm/state";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -86,10 +87,13 @@ export function PostEditor({
         void addImages(files);
         return true;
       },
-      handleDrop: (_view, event) => {
+      handleDrop: (view, event) => {
         const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => IMAGE_TYPES.has(f.type));
         if (files.length === 0) return false;
         event.preventDefault();
+        // 커서가 아니라 놓은 자리에 넣는다.
+        const drop = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (drop) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(drop.pos))));
         void addImages(files);
         return true;
       },
@@ -117,7 +121,7 @@ export function PostEditor({
             .focus()
             .insertContentAt(editor.state.selection.to, {
               type: "image",
-              attrs: { src: mediaUrl(path), alt: file.name },
+              attrs: { src: mediaUrl(path), alt: "첨부 이미지" },
             })
             .run();
         } catch (err) {
