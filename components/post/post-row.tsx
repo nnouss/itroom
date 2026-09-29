@@ -2,7 +2,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Link2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,6 +20,15 @@ import { canManagePost } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { AvatarMark } from "@/components/ui/avatar-mark";
 import { Card } from "@/components/layout/card";
+
+async function copyPostLink(id: string) {
+  try {
+    await navigator.clipboard.writeText(`${window.location.origin}/posts/${id}`);
+    toast("링크를 복사했습니다.");
+  } catch {
+    toast("링크를 복사하지 못했습니다.");
+  }
+}
 
 export function PostRow({
   post,
@@ -54,35 +64,42 @@ export function PostRow({
               {edited && <span> · 수정됨</span>}
             </Link>
           </div>
-          {canManage && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0"
-                  aria-label="게시물 메뉴"
-                >
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/posts/${post.id}/edit`}>
-                    <Pencil />
-                    수정
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => setDeleteOpen(true)}
-                >
-                  <Trash2 />
-                  삭제
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                aria-label="게시물 메뉴"
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* 글 고정 주소. 받은 회원은 로그인 후 바로 이 글로 온다. */}
+              <DropdownMenuItem onSelect={() => void copyPostLink(post.id)}>
+                <Link2 />
+                링크 복사
+              </DropdownMenuItem>
+              {canManage && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/posts/${post.id}/edit`}>
+                      <Pencil />
+                      수정
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 />
+                    삭제
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="space-y-3">
           {post.blocks.map((block, index) =>

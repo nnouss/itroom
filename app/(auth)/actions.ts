@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ENV_MISSING_MESSAGE, getEnv, isEnvConfigured } from "@/lib/env";
+import { safeNextPath } from "@/lib/auth-redirect";
 export type AuthState = { error?: string; success?: string };
 const field = (data: FormData, key: string) =>
   typeof data.get(key) === "string" ? (data.get(key) as string) : "";
@@ -25,7 +26,7 @@ export async function signIn(formData: FormData): Promise<AuthState> {
     return { error: "로그인에 실패했습니다. 잠시 후 다시 시도해주세요." };
   }
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect(safeNextPath(field(formData, "next")));
 }
 export async function signOut(): Promise<void> {
   if (isEnvConfigured()) {

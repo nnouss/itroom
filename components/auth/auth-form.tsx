@@ -21,9 +21,12 @@ const actions = {
 export function AuthForm({
   mode,
   configured,
+  next,
 }: {
   mode: Mode;
   configured: boolean;
+  /** 로그인 뒤 돌아갈 앱 안 경로 */
+  next?: string;
 }) {
   const [visible, setVisible] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -39,6 +42,7 @@ export function AuthForm({
         : "비밀번호 저장";
   return (
     <form action={formAction} className="space-y-6" aria-busy={pending}>
+      {mode === "login" && next && <input type="hidden" name="next" value={next} />}
       {mode !== "password" && (
         <div className="space-y-2">
           <Label htmlFor="email">이메일</Label>

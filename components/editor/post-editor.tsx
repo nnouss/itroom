@@ -13,6 +13,7 @@ import { Toolbar } from "./toolbar";
 import { TagInput } from "./tag-input";
 import { LinkDialog } from "./link-dialog";
 import { discardUploads, savePost, type SavePostResult } from "@/app/(app)/posts/actions";
+import { goBack } from "@/lib/back-nav";
 import { uploadImage, UploadError } from "@/lib/upload";
 import { mediaUrl, pathFromMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
@@ -169,14 +170,16 @@ export function PostEditor({
       submitted.current = true;
       cleanupUnused(imagePathsIn(contentHtml));
       toast(mode === "create" ? "소식을 올렸습니다." : "소식을 수정했습니다.");
-      router.push(mode === "create" ? "/" : `/posts/${result.id}`);
+      // 새 글은 피드 맨 위에서 확인한다. 수정은 들어온 화면(피드, 내 소식, 상세)으로 돌아간다.
+      if (mode === "create") router.push("/");
+      else goBack(router, `/posts/${result.id}`);
     });
   };
   const cancel = () => {
     if (dirty && !window.confirm("작성 중인 내용이 사라집니다. 나갈까요?")) return;
     submitted.current = true;
     cleanupUnused(new Set());
-    router.push(mode === "create" ? "/" : `/posts/${postId}`);
+    goBack(router, mode === "create" ? "/" : `/posts/${postId}`);
   };
   // 에디터 밖 링크(헤더의 뒤로, 탭)로 나갈 때도 같은 확인을 거친다
   useEffect(() => {

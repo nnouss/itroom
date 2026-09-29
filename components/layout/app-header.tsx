@@ -1,9 +1,12 @@
 "use client";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, Home, Pencil } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { ProfileMenu } from "./profile-menu";
+import { BackLink } from "./back-link";
+import { noteInAppNavigation } from "@/lib/back-nav";
 import { confirmLeave } from "@/lib/leave-guard";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +43,7 @@ function Tab({
   );
 }
 
-/** 하위 화면의 모바일 헤더 제목과 뒤로 갈 곳 */
+/** 하위 화면의 모바일 헤더 제목과, 앞 화면이 없을 때(링크로 바로 들어온 경우) 뒤로 갈 곳 */
 function subPage(path: string): { title: string; back: string } | null {
   if (path === "/write") return { title: "새 소식", back: "/" };
   if (path === "/me") return { title: "내 소식", back: "/" };
@@ -63,6 +66,11 @@ export function AppHeader({ displayName, isOwner }: { displayName: string; isOwn
   const home = path === "/";
   const writing = path === "/write";
   const sub = subPage(path);
+  // 뒤로 가기 판단용(Navigation API가 없는 브라우저): 처음 연 화면에서 다른 화면으로 옮겨 갔는지 기록한다.
+  const firstPath = useRef(path);
+  useEffect(() => {
+    if (path !== firstPath.current) noteInAppNavigation();
+  }, [path]);
   return (
     <header className="sticky top-0 z-30 border-b border-hairline-soft bg-canvas">
       <div
@@ -74,16 +82,12 @@ export function AppHeader({ displayName, isOwner }: { displayName: string; isOwn
       >
         <div className="flex min-w-0 items-center justify-self-start">
           {sub && (
-            <Link
-              href={sub.back}
-              aria-label="뒤로"
-              onClick={(event) => {
-                if (!confirmLeave()) event.preventDefault();
-              }}
+            <BackLink
+              fallback={sub.back}
               className="-ml-2 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-ink hover:bg-canvas-soft sm:hidden"
             >
               <ArrowLeft className="size-[22px]" />
-            </Link>
+            </BackLink>
           )}
           {sub && <span className="type-title ml-1 truncate text-[17px] sm:hidden">{sub.title}</span>}
           <Link
