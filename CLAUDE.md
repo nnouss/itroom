@@ -22,14 +22,14 @@
 
 ```
 app/(auth)/        로그인, 비밀번호 설정·재설정, auth 콜백. actions.ts에 서버 액션
-app/(app)/         보호 영역. 피드(page.tsx), 내 소식(me), 글쓰기(write), 글 상세·수정(posts/[id]), posts/actions.ts
+app/(app)/         보호 영역. 피드(page.tsx), 내 소식(me), 내 정보(account), 글쓰기(write), 글 상세·수정(posts/[id]), posts/actions.ts
 app/og/[id]        글별 OG 이미지 / app/media/[...path]  Storage 이미지 프록시
-components/        ui(shadcn), post(피드·행·링크카드), editor(Tiptap·툴바·태그), auth, layout
-lib/               auth, permissions(canManagePost), posts, tags, sanitize, og, upload, media, env, constants
+components/        ui(shadcn), post(피드·행·링크카드), editor(Tiptap·툴바·태그), account(닉네임 변경·탈퇴), auth, layout
+lib/               auth, permissions(canManagePost), posts, profile(닉네임 정리), tags, sanitize, og, upload, media, env, constants
 lib/supabase/      client.ts / server.ts / proxy.ts
 proxy.ts           루트 미들웨어. 세션 갱신과 비로그인 리다이렉트
 supabase/          migrations/*.sql, config.toml(auth 설정), templates/(메일)
-tests/             node --test 기반 단위 테스트(permissions, content, og, auth-config)
+tests/             node --test 기반 단위 테스트(permissions, content, og, auth-config, profile)
 docs/              기획서, design, brand, tasks(구현 브리프), reviews(리뷰 결과)
 ```
 
@@ -40,8 +40,9 @@ docs/              기획서, design, brand, tasks(구현 브리프), reviews(�
   RLS → 서버 액션 → 페이지 가드 → UI 네 겹이 같은 규칙을 쓴다. RLS가 최종 방어선.
 - 피드: 단일 컬럼 타임라인. 커서 기반 무한 스크롤(`FEED_PAGE_SIZE`), 전체 로드 금지. 태그 필터.
 - 글: 모든 회원 작성 가능. Tiptap 리치 텍스트, 이미지 업로드(본인 폴더), 링크 카드, 태그.
+- 내 정보(`/account`): 닉네임 변경(회원 간 중복 금지), 회원 탈퇴(비밀번호 재확인, 글·이미지 hard delete). owner는 탈퇴 불가.
 - 테마: 라이트/다크. 반응형은 필수(360px ~ 1440px).
-- 초기 버전에 좋아요·댓글·북마크·관리자 페이지는 없다. 계정 관리는 Supabase 대시보드로 한다.
+- 초기 버전에 좋아요·댓글·북마크·관리자 페이지는 없다. 계정 생성은 Supabase 대시보드로 한다.
 
 ## 코딩 규칙
 
@@ -50,18 +51,17 @@ docs/              기획서, design, brand, tasks(구현 브리프), reviews(�
 - 사용자 입력 HTML은 항상 `lib/sanitize.ts`를 거친다.
 - 설명·주석·커밋 메시지는 한국어로 쓴다. 코드 식별자는 영어.
 
-## 작업 방식 (Herdr)
+## 작업 방식
 
-이 세션은 Herdr의 `계획` pane에서 실행된다. 옆에는 `구현` pane(Claude Code)이 같은 디렉터리에 있다.
+계획부터 구현·검증까지 이 세션에서 직접 한다. 다른 pane에 구현을 넘기지 않는다.
 
-1. **계획**: 요구사항을 정리하고 `docs/tasks/NN-*.md`에 번호 붙인 브리프를 작성한다.
-   브리프에는 목표, 절대 규칙(커밋·푸시 금지, 원격 Supabase 변경 금지), 단계, 완료 보고 형식을 담는다.
-2. **구현 위임**: `herdr pane list --workspace "$HERDR_WORKSPACE_ID"`로 라벨이 `구현`인 pane ID를 확인하고
-   `herdr agent prompt <pane> "<브리프 경로> 읽고 구현"`으로 넘긴다. `herdr agent wait`로 완료를 기다린다.
-3. **검증**: 결과를 직접 확인한다. `pnpm lint`, `pnpm test`, `pnpm build`, 마이그레이션 적용, 브라우저 동작 확인.
-   문제가 있으면 수정 지시를 다시 `구현` pane에 보낸다.
-4. **커밋·푸시 승인**: 작업이 끝나 커밋·푸시가 필요하면 변경 요약을 보여 주고 **사용자 승인을 받은 뒤에만** 진행한다.
-   승인 전에는 절대 커밋하지 않는다. 사용자가 로컬 테스트를 마쳤다고 말할 때까지 기다린다.
+1. **계획**: 요구사항과 관련 코드를 확인하고 설계와 결정할 점을 사용자에게 보여 준다. 결정을 받은 뒤 구현한다.
+2. **구현**: 위 코딩 규칙을 따른다. DB 변경은 `supabase/migrations/`에 새 파일로 만들고,
+   원격 적용 전에 트랜잭션 + `rollback`으로 원격 DB에서 먼저 검증한다.
+3. **검증**: `pnpm lint`, `pnpm test`, `pnpm build`, 브라우저 동작 확인(360px ~ 1440px).
+   원격 Supabase 변경(마이그레이션 적용, 계정 생성 등)은 **사용자 승인을 받은 뒤에만** 한다.
+4. **커밋·푸시 승인**: 로컬(`pnpm dev`)에서 확인할 수 있게 준비하고 변경 요약을 보여 준다.
+   사용자가 로컬 테스트를 마쳤다고 말하고 **승인한 뒤에만** 커밋·푸시한다. main 푸시는 곧 프로덕션 배포다.
 
 UI 작업에는 `/frontend-design`, `/ui-ux-pro-max:ui-ux-pro-max` 스킬을 활용한다.
 
