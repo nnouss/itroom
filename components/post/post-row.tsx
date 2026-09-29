@@ -10,13 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { ImageViewer } from "./image-viewer";
 import { LinkCard } from "./link-card";
 import { TagChip } from "./tag-chip";
 import { DeletePostDialog } from "./delete-post-dialog";
@@ -138,43 +132,27 @@ function PostImages({ images }: { images: PostImage[] }) {
       aria-label="게시물 이미지"
     >
       {images.map((image, index) => (
-        <Dialog key={`${image.path}-${index}`}>
-          <DialogTrigger asChild>
-            <button
-              aria-label={`${image.alt} 원본 보기`}
-              className={cn(
-                "block overflow-hidden rounded-2xl bg-canvas-soft",
-                multiple ? "h-60 w-[85%] shrink-0 snap-start" : "w-full",
-              )}
-            >
-              <Image
-                unoptimized
-                src={image.src}
-                alt={image.alt}
-                width={1200}
-                height={800}
-                className={cn(
-                  "w-full object-cover",
-                  multiple ? "h-60" : "h-auto max-h-[520px]",
-                )}
-              />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-4xl">
-            <DialogTitle className="sr-only">{image.alt}</DialogTitle>
-            <DialogDescription className="sr-only">
-              게시물 이미지 원본
-            </DialogDescription>
+        <ImageViewer key={`${image.path}-${index}`} image={image}>
+          <button
+            aria-label={`${image.alt} 원본 보기`}
+            className={cn(
+              "block overflow-hidden rounded-2xl bg-canvas-soft",
+              multiple ? "h-60 w-[85%] shrink-0 snap-start" : "w-full",
+            )}
+          >
             <Image
               unoptimized
               src={image.src}
               alt={image.alt}
               width={1200}
               height={800}
-              className="max-h-[80dvh] w-full rounded-2xl object-contain"
+              className={cn(
+                "w-full object-cover",
+                multiple ? "h-60" : "h-auto max-h-[520px]",
+              )}
             />
-          </DialogContent>
-        </Dialog>
+          </button>
+        </ImageViewer>
       ))}
     </div>
   );
