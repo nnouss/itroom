@@ -80,7 +80,7 @@ export function FeedList({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {posts.map((post, index) => (
         <div
           key={post.id}
@@ -98,7 +98,7 @@ export function FeedList({
         </div>
       ))}
       {cursor ? (
-        <div ref={sentinel} aria-live="polite" className="space-y-3">
+        <div ref={sentinel} aria-live="polite" className="space-y-5">
           {!error &&
             [0, 1].map((n) => (
               <div key={n} className="space-y-3 border-y border-hairline-soft bg-canvas px-4 py-4 sm:rounded-2xl sm:border">
