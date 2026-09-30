@@ -132,10 +132,9 @@
   .lucide {
     stroke-width: 1.5;
   }
-  /* 2px ink 포커스 링. base 레이어에 두어 utilities(outline-none)가 덮어쓸 수 있게 한다. */
+  /* 흰 외곽 포커스 링은 쓰지 않는다. 브라우저 기본 링도 끈다. */
   :focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 0;
+    outline: none;
   }
 }
 @utility type-display {
@@ -291,9 +290,6 @@
   --on-ink: #06080e;
   --text-muted: rgba(255, 255, 255, 0.62);
   --text-faint: rgba(255, 255, 255, 0.38);
-}
-.auth-scene [data-slot="input"]:focus-visible {
-  outline-color: rgba(255, 255, 255, 0.9);
 }
 
 /* 노을 그라데이션: 아바타와 로고 (로그인 화면의 하늘과 같은 색) */

@@ -123,8 +123,8 @@ export function DisplayNameForm({ current }: { current: string }) {
           aria-describedby="displayName-help displayName-status"
           className={cn(
             "pr-16",
-            tone === "error" && "ring-1 ring-destructive focus-visible:outline-destructive",
-            tone === "success" && "ring-1 ring-success focus-visible:outline-success",
+            tone === "error" && "ring-1 ring-destructive",
+            tone === "success" && "ring-1 ring-success",
           )}
         />
         <span
