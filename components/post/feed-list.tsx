@@ -88,6 +88,7 @@ export function FeedList({
           style={{ animationDelay: `${Math.min(index % 10, 9) * 30}ms` }}
         >
           <PostRow
+            collapsible
             post={post}
             viewer={viewer}
             relativeTime={formatRelative(post.createdAt, now)}

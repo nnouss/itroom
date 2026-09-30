@@ -15,6 +15,7 @@ import { ImageViewer } from "./image-viewer";
 import { LinkCard } from "./link-card";
 import { TagChip } from "./tag-chip";
 import { DeletePostDialog } from "./delete-post-dialog";
+import { CollapsibleBody } from "./collapsible-body";
 import type { Post, PostImage, Viewer } from "@/lib/types";
 import { canManagePost } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function PostRow({
   viewer,
   relativeTime,
   activeTag,
+  collapsible = false,
   afterDelete = "refresh",
   onDeleted,
 }: {
@@ -42,12 +44,30 @@ export function PostRow({
   viewer: Viewer;
   relativeTime: string;
   activeTag?: string | null;
+  collapsible?: boolean;
   afterDelete?: "refresh" | "home" | "none";
   onDeleted?: (id: string) => void;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const canManage = canManagePost(viewer, post.authorId);
   const edited = post.updatedAt !== post.createdAt;
+  const body = post.blocks.map((block, index) =>
+    block.type === "html" ? (
+      <div
+        key={index}
+        className="post-content type-body"
+        dangerouslySetInnerHTML={{ __html: block.html }}
+      />
+    ) : (
+      <PostImages key={index} images={block.images} />
+    ),
+  );
+  const content = (
+    <>
+      {body}
+      {post.link && <LinkCard link={post.link} />}
+    </>
+  );
   return (
     <Card className="min-w-0 px-4 pt-3 pb-4">
     <article className="min-w-0">
@@ -102,18 +122,7 @@ export function PostRow({
           </DropdownMenu>
         </div>
         <div className="space-y-3">
-          {post.blocks.map((block, index) =>
-            block.type === "html" ? (
-              <div
-                key={index}
-                className="post-content type-body"
-                dangerouslySetInnerHTML={{ __html: block.html }}
-              />
-            ) : (
-              <PostImages key={index} images={block.images} />
-            ),
-          )}
-          {post.link && <LinkCard link={post.link} />}
+          {collapsible ? <CollapsibleBody>{content}</CollapsibleBody> : content}
           {post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
